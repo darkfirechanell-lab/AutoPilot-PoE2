@@ -24,18 +24,6 @@ public sealed class InputQueue : IDisposable
     /// <summary>Gap mínimo (ms) entre o KeyDown e o KeyUp de um tap, para o jogo o registar.</summary>
     public const int DefaultTapHoldMs = 12;
 
-    /// <summary>
-    /// Intervalo mínimo (ms) entre QUAISQUER dois inputs novos (taps ou inícios de hold). É o
-    /// rate-limiter GLOBAL que impede o "kicked for performing too many actions too fast" do GGG:
-    /// por muito que as routines peçam, nunca saem mais de ~1000/MinGlobalGapMs ações por segundo.
-    /// 90ms ≈ 11 ações/s — agressivo o suficiente para a build, seguro para o servidor.
-    /// Configurável em runtime via <see cref="MinGlobalGapMs"/>.
-    /// </summary>
-    public int MinGlobalGapMs { get; set; } = 60;
-
-    // Instante (UTC ticks) do último input enviado — base do rate-limiter global.
-    private long _lastInputTicks;
-
     // Taps pendentes de libertação: tecla → instante (UTC ticks) em que o KeyUp deve ocorrer.
     private readonly Dictionary<Keys, long> _pendingTapRelease = new();
 
@@ -57,28 +45,15 @@ public sealed class InputQueue : IDisposable
     public void Tap(Keys key, int holdMs = DefaultTapHoldMs)
     {
         if (_disposed || key == Keys.None) return;
-        if (!GlobalGateOpen()) return; // rate-limiter global: o que protege do kick por excesso de ações
 
         // Se esta tecla está presa como hold, termina o hold — o tap é uma intenção diferente.
         if (_heldKey == key) ReleaseHold();
 
-        // Tap ATÓMICO como o AutoMyAim (que NÃO leva kick): KeyDown, pequeno gap para o jogo registar,
-        // KeyUp — tudo fechado aqui. O micro-sleep é aceitável (o AutoMyAim usa-o sem problema); o que
-        // causava o kick era o KeyUp assíncrono num tick futuro a sobrepor-se com novos taps, não isto.
+        // Tap igual ao AutoMyAim: KeyDown, pequeno gap para o jogo registar, KeyUp. Sem rate-limiter
+        // global (o AutoMyAim não tem — o anti-spam é por cooldown de cada skill na routine).
         ExileCore2.Input.KeyDown(key);
-        System.Threading.Thread.Sleep(Math.Max(3, Math.Min(holdMs, 15)));
+        System.Threading.Thread.Sleep(5);
         ExileCore2.Input.KeyUp(key);
-        _lastInputTicks = DateTime.UtcNow.Ticks;
-    }
-
-    /// <summary>
-    /// True se já passou o intervalo mínimo global desde o último input. Protege contra o kick por
-    /// excesso de ações: por mais que as routines peçam, o ritmo total é limitado aqui.
-    /// </summary>
-    private bool GlobalGateOpen()
-    {
-        var sinceMs = (DateTime.UtcNow.Ticks - _lastInputTicks) / TimeSpan.TicksPerMillisecond;
-        return sinceMs >= MinGlobalGapMs;
     }
 
     /// <summary>
@@ -89,7 +64,6 @@ public sealed class InputQueue : IDisposable
     {
         if (_disposed || key == Keys.None) return;
         if (_heldKey == key) return; // já está em hold, nada a fazer (continuar não é input novo)
-        if (!GlobalGateOpen()) return; // rate-limiter: não inicia um hold novo cedo demais
 
         if (_heldKey != Keys.None) ReleaseHold();
 
@@ -98,7 +72,6 @@ public sealed class InputQueue : IDisposable
 
         ExileCore2.Input.KeyDown(key);
         _heldKey = key;
-        _lastInputTicks = DateTime.UtcNow.Ticks;
     }
 
     /// <summary>Liberta a tecla em hold (se houver). Seguro chamar sem nada em hold.</summary>

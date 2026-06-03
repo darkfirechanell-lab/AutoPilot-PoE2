@@ -186,59 +186,29 @@ public sealed class IceShotRoutine : IRoutine
     }
 
     // ── Combo Barrage → Snipe (alvo frozen) ─────────────────────────────────────────────────
-    // Estrutura do AutoMyAim + deteção de fim de animação do Barrage pelo SINAL real (não só timer):
+    // CÓPIA EXATA do AutoMyAim (sem adicionar nada):
     //   1. TryUseBarrage() → se disparou, return.
-    //   2. Espera a animação do Barrage ACABAR antes de o Snipe entrar (senão o Snipe corta-a e o
-    //      Barrage não dá dano). Fim de animação detetado por `action != "UsingAbility"` (sinal preciso
-    //      descoberto no log — o Barrage anima ~384ms com action=UsingAbility), com um tempo mínimo
-    //      para a animação arrancar e o BarrageCommitMs como teto de segurança.
+    //   2. if (!CanUse(_lastBarrage, BarrageCommitMs)) return — espera o commit do Barrage.
     //   3. BeginSnipe.
     private bool TryFrozenCombo(RoutineContext ctx, Entity target)
     {
         var frozen = BuffReader.Has(target, FROZEN);
         var snipe = ctx.Find(SNIPE);
-        var sinceBarrage = _cd.SinceMs(BARRAGE);
-        ComboDebug = $"{_rarityDebug} | frozen={frozen} sinceBarrage={(sinceBarrage > 99999 ? -1 : sinceBarrage)} action={ctx.Animation.Action}";
+        ComboDebug = $"{_rarityDebug} | frozen={frozen} sinceBarrage={(_cd.SinceMs(BARRAGE) > 99999 ? -1 : _cd.SinceMs(BARRAGE))}";
 
         if (!frozen) return false;
 
-        // 1. Barrage primeiro. Se disparou, return.
+        // 1. Barrage. Se disparou, return.
         if (TryUseBarrage(ctx)) return true;
 
-        // 2. Só deixa o Snipe entrar quando a animação do Barrage acabou.
-        if (!BarrageAnimationDone(ctx, sinceBarrage)) return true;
+        // 2. Espera a animação do Barrage acabar antes do Snipe (timer simples, como o AutoMyAim).
+        if (!_cd.Ready(BARRAGE, BarrageCommitMs)) return true;
 
         // 3. Snipe.
         if (snipe != null && snipe.Key.Value.Key != Keys.None && snipe.IsReady)
         {
             BeginChannel(ctx, Channel.Snipe, snipe.Key.Value.Key, target.Id);
             return true;
-        }
-
-        // Snipe indisponível → não bloqueia: deixa a rotação seguir para o filler.
-        return false;
-    }
-
-    // Tempo mínimo após o tap do Barrage antes de aceitar "animação acabou" — a animação demora
-    // 1-2 ticks a arrancar (action ainda não é UsingAbility logo a seguir ao tap), por isso sem este
-    // mínimo o Snipe entrava antes do Barrage sequer começar.
-    private const int BARRAGE_ANIM_MIN_MS = 80;
-
-    /// <summary>
-    /// A animação do Barrage acabou? True se:
-    ///   • passou o mínimo de arranque E o jogador já NÃO está em UsingAbility (a animação terminou), OU
-    ///   • o teto de segurança (BarrageCommitMs) já passou (rede de segurança se o sinal falhar).
-    /// </summary>
-    private bool BarrageAnimationDone(RoutineContext ctx, long sinceBarrageMs)
-    {
-        if (sinceBarrageMs >= BarrageCommitMs) return true; // teto de segurança
-
-        if (sinceBarrageMs >= BARRAGE_ANIM_MIN_MS)
-        {
-            var action = ctx.Animation.Action;
-            // Quando a animação do Barrage acaba, action deixa de ser "UsingAbility".
-            if (!string.Equals(action, "UsingAbility", StringComparison.OrdinalIgnoreCase))
-                return true;
         }
 
         return false;
