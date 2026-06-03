@@ -1,0 +1,4 @@
+bin/
+obj/
+*.user
+AutoPilot_debug.txt

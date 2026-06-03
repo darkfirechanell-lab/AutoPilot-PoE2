@@ -1,0 +1,156 @@
+using System;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using ExileCore2;
+
+namespace AutoPilot.Input;
+
+/// <summary>
+/// Gere todo o estado de teclas do plugin sem NUNCA bloquear o thread do jogo.
+///
+/// Porquê isto existe: o método ingénuo de fazer um "tap" é KeyDown → Thread.Sleep(5) → KeyUp,
+/// mas o Sleep congela o Tick inteiro do ExileCore (rouba FPS), e sem QUALQUER gap o jogo
+/// às vezes perde o tap. A solução: KeyDown imediato + KeyUp AGENDADO para um instante futuro,
+/// libertado por <see cref="Pump"/> quando o relógio real chega lá. O gap existe, mas medido
+/// entre ticks em vez de num Sleep — zero bloqueio.
+///
+/// Regras invioláveis (lições do AutoMyAim):
+///   • Cada KeyDown tem de ter sempre o seu KeyUp — senão a tecla fica presa (loot bloqueado, spam).
+///   • Nunca usar Input.KeyPressRelease (deixava a tecla efetivamente presa).
+///   • Uma só tecla "hold" de cada vez para skills; mudar de hold liberta a anterior primeiro.
+/// </summary>
+public sealed class InputQueue : IDisposable
+{
+    /// <summary>Gap mínimo (ms) entre o KeyDown e o KeyUp de um tap, para o jogo o registar.</summary>
+    public const int DefaultTapHoldMs = 12;
+
+    /// <summary>
+    /// Intervalo mínimo (ms) entre QUAISQUER dois inputs novos (taps ou inícios de hold). É o
+    /// rate-limiter GLOBAL que impede o "kicked for performing too many actions too fast" do GGG:
+    /// por muito que as routines peçam, nunca saem mais de ~1000/MinGlobalGapMs ações por segundo.
+    /// 90ms ≈ 11 ações/s — agressivo o suficiente para a build, seguro para o servidor.
+    /// Configurável em runtime via <see cref="MinGlobalGapMs"/>.
+    /// </summary>
+    public int MinGlobalGapMs { get; set; } = 60;
+
+    // Instante (UTC ticks) do último input enviado — base do rate-limiter global.
+    private long _lastInputTicks;
+
+    // Taps pendentes de libertação: tecla → instante (UTC ticks) em que o KeyUp deve ocorrer.
+    private readonly Dictionary<Keys, long> _pendingTapRelease = new();
+
+    // A tecla atualmente em "hold" contínuo (ex.: canalizar Snipe, segurar Salvo). None = nenhuma.
+    private Keys _heldKey = Keys.None;
+
+    private bool _disposed;
+
+    /// <summary>True se há uma tecla em hold contínuo neste momento.</summary>
+    public bool IsHolding => _heldKey != Keys.None;
+
+    /// <summary>A tecla em hold, ou Keys.None.</summary>
+    public Keys HeldKey => _heldKey;
+
+    /// <summary>
+    /// Tap: prime e agenda a libertação para daqui a <paramref name="holdMs"/>. Não bloqueia.
+    /// Se a mesma tecla já estiver em hold, liberta-a primeiro (um tap é um evento discreto).
+    /// </summary>
+    public void Tap(Keys key, int holdMs = DefaultTapHoldMs)
+    {
+        if (_disposed || key == Keys.None) return;
+        if (!GlobalGateOpen()) return; // rate-limiter global: o que protege do kick por excesso de ações
+
+        // Se esta tecla está presa como hold, termina o hold — o tap é uma intenção diferente.
+        if (_heldKey == key) ReleaseHold();
+
+        // Tap ATÓMICO como o AutoMyAim (que NÃO leva kick): KeyDown, pequeno gap para o jogo registar,
+        // KeyUp — tudo fechado aqui. O micro-sleep é aceitável (o AutoMyAim usa-o sem problema); o que
+        // causava o kick era o KeyUp assíncrono num tick futuro a sobrepor-se com novos taps, não isto.
+        ExileCore2.Input.KeyDown(key);
+        System.Threading.Thread.Sleep(Math.Max(3, Math.Min(holdMs, 15)));
+        ExileCore2.Input.KeyUp(key);
+        _lastInputTicks = DateTime.UtcNow.Ticks;
+    }
+
+    /// <summary>
+    /// True se já passou o intervalo mínimo global desde o último input. Protege contra o kick por
+    /// excesso de ações: por mais que as routines peçam, o ritmo total é limitado aqui.
+    /// </summary>
+    private bool GlobalGateOpen()
+    {
+        var sinceMs = (DateTime.UtcNow.Ticks - _lastInputTicks) / TimeSpan.TicksPerMillisecond;
+        return sinceMs >= MinGlobalGapMs;
+    }
+
+    /// <summary>
+    /// Hold contínuo: mantém a tecla premida até <see cref="ReleaseHold"/>. Idempotente —
+    /// chamar repetidamente com a mesma tecla não re-prime. Mudar de tecla liberta a anterior.
+    /// </summary>
+    public void Hold(Keys key)
+    {
+        if (_disposed || key == Keys.None) return;
+        if (_heldKey == key) return; // já está em hold, nada a fazer (continuar não é input novo)
+        if (!GlobalGateOpen()) return; // rate-limiter: não inicia um hold novo cedo demais
+
+        if (_heldKey != Keys.None) ReleaseHold();
+
+        // Se a tecla tinha um tap pendente, cancela-o — o hold assume o controlo da tecla.
+        _pendingTapRelease.Remove(key);
+
+        ExileCore2.Input.KeyDown(key);
+        _heldKey = key;
+        _lastInputTicks = DateTime.UtcNow.Ticks;
+    }
+
+    /// <summary>Liberta a tecla em hold (se houver). Seguro chamar sem nada em hold.</summary>
+    public void ReleaseHold()
+    {
+        if (_heldKey == Keys.None) return;
+        ExileCore2.Input.KeyUp(_heldKey);
+        _heldKey = Keys.None;
+    }
+
+    /// <summary>
+    /// Processa as libertações agendadas. DEVE ser chamado uma vez por Tick. É aqui que os taps
+    /// cujo tempo expirou recebem o KeyUp — substitui o antigo Thread.Sleep por relógio real.
+    /// </summary>
+    public void Pump()
+    {
+        if (_disposed || _pendingTapRelease.Count == 0) return;
+
+        var now = DateTime.UtcNow.Ticks;
+        List<Keys> toRelease = null;
+        foreach (var kv in _pendingTapRelease)
+            if (now >= kv.Value)
+                (toRelease ??= new List<Keys>()).Add(kv.Key);
+
+        if (toRelease == null) return;
+        foreach (var key in toRelease)
+        {
+            ExileCore2.Input.KeyUp(key);
+            _pendingTapRelease.Remove(key);
+        }
+    }
+
+    /// <summary>
+    /// Larga TUDO imediatamente: hold + todos os taps pendentes. Usar ao desligar o plugin,
+    /// mudar de área, ou perder o alvo a meio de um canal — garante que nenhuma tecla fica presa.
+    /// </summary>
+    public void ReleaseAll()
+    {
+        ReleaseHold();
+
+        if (_pendingTapRelease.Count > 0)
+        {
+            foreach (var key in _pendingTapRelease.Keys)
+                ExileCore2.Input.KeyUp(key);
+            _pendingTapRelease.Clear();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        ReleaseAll();
+        _disposed = true;
+    }
+}
