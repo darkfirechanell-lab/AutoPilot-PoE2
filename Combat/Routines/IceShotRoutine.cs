@@ -50,10 +50,11 @@ public sealed class IceShotRoutine : IRoutine
     private const int CD_MARK_RETRY = 1000;
     private const int CD_ICE_TIPPED = 1200;
     private const int CD_TORNADO = 2000;
-    // CD_BARRAGE: era 2000ms (artificial) e BLOQUEAVA o Barrage no 2º Rare em diante (o gate de 2s não
-    // tinha passado). O cooldown REAL do Barrage já é lido por s.IsReady (CanBeUsed do jogo); este só
-    // precisa de ser anti-spam curto. Diagnóstico confirmou cdReady=False em 399/400 frames.
-    private const int CD_BARRAGE = 150;
+    // CD_BARRAGE: o cooldown REAL do Barrage no jogo é 1,54s (tooltip). O CanBeUsed do Barrage NÃO o
+    // bloqueia de forma fiável (é um empower), por isso ESTE gate tem de o fazer. 2000ms era grande
+    // demais (bloqueava o 2º Rare); 150ms era curto demais (spam, o Snipe nunca entrava). 1540ms =
+    // o cooldown real → o Barrage sai uma vez por ciclo e deixa o Snipe entrar. Ver barrage-empower-mechanic.
+    private const int CD_BARRAGE = 1540;
 
     // Snipe
     private const int SNIPE_RELEASE_STAGE = 21;
@@ -64,8 +65,8 @@ public sealed class IceShotRoutine : IRoutine
     private const int MARK_COMMIT_MAX_MS = 500;
     private const int ICE_TIPPED_COMMIT_MAX_MS = 500; // segura até o buff shearing_bolts aparecer
     private const int TORNADO_COMMIT_MAX_MS = 500;    // segura até confirmar o uso (IsUsing/cooldown)
-    // Barrage — fallback de tempo se a leitura de animação falhar (rede de segurança, não principal)
-    private const int BARRAGE_COMMIT_FALLBACK_MS = 400;
+    // Barrage — segura até confirmar o uso (IsUsing/cooldown do ActorSkill) ou timeout.
+    private const int BARRAGE_COMMIT_MAX_MS = 600;
 
     // Limiares configuráveis (defaults; ligados aos settings na integração)
     public int MinSalvoSeals { get; set; } = 10;
@@ -76,7 +77,7 @@ public sealed class IceShotRoutine : IRoutine
     private readonly CooldownTracker _cd = new();
 
     // Estado de canalização (uma máquina só, partilhada)
-    private enum Channel { None, Snipe, Salvo, Mark, IceTipped, Tornado }
+    private enum Channel { None, Snipe, Salvo, Mark, IceTipped, Tornado, Barrage }
     private Channel _channel;
     private Keys _channelKey;
     private long _channelStartTicks;
@@ -249,8 +250,9 @@ public sealed class IceShotRoutine : IRoutine
         var s = ctx.Find(BARRAGE);
         if (s == null || !s.IsReady) return false;
         AutoPilot.ActionLog.Event($"Barrage USADO: frozen={BuffReader.Has(ctx.Target?.Entity, FROZEN)}");
-        ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
-        _cd.Mark(BARRAGE);
+        // SEGURA até confirmar o uso (IsUsing/cooldown do ActorSkill) ou timeout — igual às outras.
+        // Ao soltar, _cd.Mark(BARRAGE) é feito no EndChannel; o commit (passo 2) deixa o Snipe entrar.
+        BeginChannel(ctx, Channel.Barrage, s.Key.Value.Key, ctx.Target?.Entity?.Id ?? 0);
         return true;
     }
 
@@ -360,6 +362,16 @@ public sealed class IceShotRoutine : IRoutine
                 var used = s != null && (s.IsUsing || s.IsOnCooldown);
                 var timeout = elapsed >= TORNADO_COMMIT_MAX_MS;
                 if (used || timeout || targetGone) { EndChannel(ctx); _cd.Mark(TORNADO); }
+                return;
+            }
+            case Channel.Barrage:
+            {
+                // Confirma pelo ActorSkill: o Barrage entrou em uso (IsUsing) ou cooldown (=saiu). Ao
+                // soltar, marca o CD → no tick seguinte o combo passa o commit e entra o Snipe.
+                var s = ctx.Find(BARRAGE);
+                var used = s != null && (s.IsUsing || s.IsOnCooldown);
+                var timeout = elapsed >= BARRAGE_COMMIT_MAX_MS;
+                if (used || timeout || targetGone) { EndChannel(ctx); _cd.Mark(BARRAGE); }
                 return;
             }
         }
