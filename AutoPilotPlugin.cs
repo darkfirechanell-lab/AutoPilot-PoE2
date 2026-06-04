@@ -211,6 +211,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"mobs total={_targets.DiagTotal} cPeso={_targets.DiagWithWeight} visiveis={_targets.DiagVisible} maisperto={_targets.DiagNearestDist:F0}\n" +
                 $"pick: {_targets.DiagTargetPick}\n" +
                 $"{_routine.ComboDebug}\n" +
+                $"{_routine.BarrageDebug}\n" +
                 $"{_routine.FillerDebug}\n" +
                 $"{_aim.AimDebug}\n" +
                 $"{SkillUseDebugLine()}\n" +

@@ -50,7 +50,10 @@ public sealed class IceShotRoutine : IRoutine
     private const int CD_MARK_RETRY = 1000;
     private const int CD_ICE_TIPPED = 1200;
     private const int CD_TORNADO = 2000;
-    private const int CD_BARRAGE = 2000;
+    // CD_BARRAGE: era 2000ms (artificial) e BLOQUEAVA o Barrage no 2º Rare em diante (o gate de 2s não
+    // tinha passado). O cooldown REAL do Barrage já é lido por s.IsReady (CanBeUsed do jogo); este só
+    // precisa de ser anti-spam curto. Diagnóstico confirmou cdReady=False em 399/400 frames.
+    private const int CD_BARRAGE = 150;
 
     // Snipe
     private const int SNIPE_RELEASE_STAGE = 21;
@@ -235,17 +238,23 @@ public sealed class IceShotRoutine : IRoutine
     // Barrage: cópia do TryUseBarrage do AutoMyAim. Tap explícito, anti-spam por CD_BARRAGE.
     private bool TryUseBarrage(RoutineContext ctx)
     {
+        // DIAGNÓSTICO: mostra QUAL condição bloqueia o Barrage (porque ele não sai nos Rares frozen).
+        var s0 = ctx.Find(BARRAGE);
+        BarrageDebug = $"barrage: canHit={ctx.CanHit} cdReady={_cd.Ready(BARRAGE, CD_BARRAGE)} " +
+                       $"found={(s0 == null ? "null" : "ok")} ready={(s0 == null ? "-" : s0.IsReady.ToString())} " +
+                       $"key={(s0 == null ? "-" : s0.Key.Value.Key.ToString())}";
+
         if (!ctx.CanHit) return false; // C1: Barrage é dano direto — exige cursor no alvo.
         if (!_cd.Ready(BARRAGE, CD_BARRAGE)) return false;
         var s = ctx.Find(BARRAGE);
         if (s == null || !s.IsReady) return false;
-        // DIAGNÓSTICO: regista o estado frozen NO MOMENTO do Barrage (o ActionLog não tem throttle,
-        // ao contrário do debug que grava de 500ms em 500ms e perde os freezes curtos).
-        AutoPilot.ActionLog.Event($"Barrage: frozen={BuffReader.Has(ctx.Target?.Entity, FROZEN)}");
+        AutoPilot.ActionLog.Event($"Barrage USADO: frozen={BuffReader.Has(ctx.Target?.Entity, FROZEN)}");
         ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
         _cd.Mark(BARRAGE);
         return true;
     }
+
+    public string BarrageDebug { get; private set; } = "";
 
     // ── Mark ─────────────────────────────────────────────────────────────────────────────────
     // A fonte de verdade é o DEBUFF NO ALVO (freezing_mark), não o buff de dano do jogador.
