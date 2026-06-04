@@ -239,6 +239,9 @@ public sealed class IceShotRoutine : IRoutine
         if (!_cd.Ready(BARRAGE, CD_BARRAGE)) return false;
         var s = ctx.Find(BARRAGE);
         if (s == null || !s.IsReady) return false;
+        // DIAGNÓSTICO: regista o estado frozen NO MOMENTO do Barrage (o ActionLog não tem throttle,
+        // ao contrário do debug que grava de 500ms em 500ms e perde os freezes curtos).
+        AutoPilot.ActionLog.Event($"Barrage: frozen={BuffReader.Has(ctx.Target?.Entity, FROZEN)}");
         ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
         _cd.Mark(BARRAGE);
         return true;
