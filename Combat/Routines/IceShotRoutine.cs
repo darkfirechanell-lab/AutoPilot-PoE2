@@ -56,9 +56,11 @@ public sealed class IceShotRoutine : IRoutine
     private const int SNIPE_RELEASE_STAGE = 21;
     private const int SNIPE_MIN_CHANNEL_MS = 200;
     private const int SNIPE_MAX_CHANNEL_MS = 2000;
-    // Salvo / Mark — timeouts de segurança a segurar a tecla
+    // Salvo / Mark / Ice-Tipped / Tornado — timeouts de segurança a segurar a tecla até confirmar.
     private const int SALVO_COMMIT_MAX_MS = 1200;
     private const int MARK_COMMIT_MAX_MS = 500;
+    private const int ICE_TIPPED_COMMIT_MAX_MS = 500; // segura até o buff shearing_bolts aparecer
+    private const int TORNADO_COMMIT_MAX_MS = 500;    // segura até confirmar o uso (IsUsing/cooldown)
     // Barrage — fallback de tempo se a leitura de animação falhar (rede de segurança, não principal)
     private const int BARRAGE_COMMIT_FALLBACK_MS = 400;
 
@@ -71,7 +73,7 @@ public sealed class IceShotRoutine : IRoutine
     private readonly CooldownTracker _cd = new();
 
     // Estado de canalização (uma máquina só, partilhada)
-    private enum Channel { None, Snipe, Salvo, Mark }
+    private enum Channel { None, Snipe, Salvo, Mark, IceTipped, Tornado }
     private Channel _channel;
     private Keys _channelKey;
     private long _channelStartTicks;
@@ -176,8 +178,9 @@ public sealed class IceShotRoutine : IRoutine
         if (!_cd.Ready(TORNADO, cooldownMs)) return false;
         var s = ctx.Find(TORNADO);
         if (s == null || !s.IsReady) return false;
-        ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
-        _cd.Mark(TORNADO);
+        // SEGURA até confirmar o uso (IsUsing/cooldown do ActorSkill) ou timeout — senão o Ice Shot
+        // passava por cima e o Tornado podia não sair (perdia o uptime do blind).
+        BeginChannel(ctx, Channel.Tornado, s.Key.Value.Key, ctx.Target?.Entity?.Id ?? 0);
         return true;
     }
 
@@ -188,8 +191,9 @@ public sealed class IceShotRoutine : IRoutine
         if (!_cd.Ready(ICE_TIPPED, CD_ICE_TIPPED)) return false;
         var s = ctx.Find(ICE_TIPPED);
         if (s == null || !s.IsReady) return false;
-        ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
-        _cd.Mark(ICE_TIPPED);
+        // SEGURA até o buff shearing_bolts aparecer no player (confirmação) ou timeout — senão o
+        // Ice Shot passava por cima e o Ice-Tipped não aplicava.
+        BeginChannel(ctx, Channel.IceTipped, s.Key.Value.Key, ctx.Target?.Entity?.Id ?? 0);
         return true;
     }
 
@@ -240,16 +244,12 @@ public sealed class IceShotRoutine : IRoutine
         return true;
     }
 
-    // Nº de casts da Mark no boss. Começa em 1 (teste do utilizador). Se a marca não pegar com o
-    // buff de dano ativo (o re-cast pode consumir o buff sem marcar), passar para 2.
-    private const int BOSS_MARK_CASTS = 1;
-
     // ── Mark ─────────────────────────────────────────────────────────────────────────────────
     // A fonte de verdade é o DEBUFF NO ALVO (freezing_mark), não o buff de dano do jogador.
     //   • Se o alvo já tem o debuff → não toca (já marcado).
     //   • BOSS (Unique): re-marca assim que o debuff sai do boss, IGNORANDO o buff de dano do jogador.
-    //     Faz BOSS_MARK_CASTS taps (1 por agora; mudar p/ 2 se a marca não pegar — ver constante).
-    //   • Fora de boss: não recasta enquanto o jogador tem o buff de dano (evita desperdício); 1 tap.
+    //   • Fora de boss: não recasta enquanto o jogador tem o buff de dano (evita desperdício).
+    //   • SEGURA a tecla até a marca pegar (hold), em vez de um tap que se cancela no Ice Shot.
     private bool TryMark(RoutineContext ctx, Entity target)
     {
         if (BuffReader.Has(target, MARK_ON_ENEMY)) return false; // o alvo já está marcado
@@ -262,12 +262,10 @@ public sealed class IceShotRoutine : IRoutine
         var s = ctx.Find(MARK);
         if (s == null || s.Key.Value.Key == Keys.None) return false;
 
-        // Tap(s) simples — previsível, sem hold prolongado. No boss faz BOSS_MARK_CASTS taps.
-        var casts = isBoss ? BOSS_MARK_CASTS : 1;
-        for (var i = 0; i < casts; i++)
-            ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
-
-        _cd.Mark(MARK);
+        // SEGURA a tecla até a marca PEGAR (debuff freezing_mark no alvo) ou timeout — igual ao
+        // AutoMyAim. Um tap simples cancelava-se no lock do Ice Shot e a marca não aplicava (o boss
+        // mostrava o ícone mas o BuffsList nunca tinha o debuff → spam da Mark). O hold confirma.
+        BeginChannel(ctx, Channel.Mark, s.Key.Value.Key, target.Id);
         return true;
     }
 
@@ -332,6 +330,24 @@ public sealed class IceShotRoutine : IRoutine
                 var marked = target != null && BuffReader.Has(target, MARK_ON_ENEMY);
                 var timeout = elapsed >= MARK_COMMIT_MAX_MS;
                 if (marked || timeout || targetGone) { EndChannel(ctx); _cd.Mark(MARK); }
+                return;
+            }
+            case Channel.IceTipped:
+            {
+                // Confirma pelo buff shearing_bolts no player (aplicou). targetGone NÃO termina aqui:
+                // o Ice-Tipped é um buff do jogador, não depende do alvo continuar vivo.
+                var applied = BuffReader.Has(ctx.Game?.Player, ICE_TIPPED_BUFF);
+                var timeout = elapsed >= ICE_TIPPED_COMMIT_MAX_MS;
+                if (applied || timeout) { EndChannel(ctx); _cd.Mark(ICE_TIPPED); }
+                return;
+            }
+            case Channel.Tornado:
+            {
+                // Confirma pelo ActorSkill: a skill entrou em uso (IsUsing) ou em cooldown (=saiu).
+                var s = ctx.Find(TORNADO);
+                var used = s != null && (s.IsUsing || s.IsOnCooldown);
+                var timeout = elapsed >= TORNADO_COMMIT_MAX_MS;
+                if (used || timeout || targetGone) { EndChannel(ctx); _cd.Mark(TORNADO); }
                 return;
             }
         }

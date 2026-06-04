@@ -222,9 +222,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     /// <summary>
     /// DIAGNÓSTICO: lista os nomes de buffs/debuffs de uma entidade para o log em ficheiro. Serve
     /// para DESCOBRIR que debuff aparece no boss quando a Mark é aplicada (e confirmar nomes de buffs
-    /// em geral). Leitura defensiva; "(nenhum)" se vazio, "?" em erro.
+    /// em geral). Leitura defensiva; "(nenhum)" se vazio, "?" em erro. Também ACUMULA cada nome novo
+    /// num ficheiro à parte (apanha buffs que duram só 1 frame, ex.: a Freezing Mark).
     /// </summary>
-    private static string BuffNamesLine(ExileCore2.PoEMemory.MemoryObjects.Entity entity)
+    private string BuffNamesLine(ExileCore2.PoEMemory.MemoryObjects.Entity entity)
     {
         try
         {
@@ -234,10 +235,29 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             var names = new List<string>();
             foreach (var b in buffs.BuffsList)
                 if (!string.IsNullOrEmpty(b?.Name) && !names.Contains(b.Name))
+                {
                     names.Add(b.Name);
+                    AccumulateBuffName(entity == GameController?.Player ? "PLAYER" : "ALVO", b.Name);
+                }
             return names.Count == 0 ? "(nenhum)" : string.Join(", ", names);
         }
         catch { return "?"; }
+    }
+
+    // Acumula cada nome de buff já visto (alvo/player) num ficheiro à parte, com a 1ª hora a que
+    // apareceu. Assim apanhamos nomes que duram pouco (ex.: o debuff da Freezing Mark no boss).
+    private readonly HashSet<string> _seenBuffNames = new();
+    private void AccumulateBuffName(string who, string name)
+    {
+        var key = $"{who}:{name}";
+        if (!_seenBuffNames.Add(key)) return; // já registado
+        try
+        {
+            var line = $"[{DateTime.Now:mm:ss.fff}] {key}\n";
+            System.IO.File.AppendAllText(
+                @"C:\Users\clona\Desktop\GamePoe\TestePoE\AutoPilot_buffnames.txt", line);
+        }
+        catch { }
     }
 
     /// <summary>
