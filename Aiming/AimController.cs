@@ -27,8 +27,19 @@ public sealed class AimController
     public float ConfineRadius { get; set; } = 300f;
     public float Smoothing { get; set; } = 0f; // 0 = sem suavização (teleporte); 0..1 = fração por tick
 
+    // A3: randomização do cursor. 0 = desligado (cursor exato no centro do corpo). >0 = raio máximo
+    // (px) de um offset aleatório aplicado ao alvo, para o movimento não ser robótico-perfeito.
+    public float JitterRadius { get; set; } = 0f;
+
     private Vector2 _lastCursor;
     private bool _hasLast;
+
+    // O offset de jitter persiste e só se re-rola de vez em quando — senão o cursor tremia a cada
+    // tick e podia falhar o mob. Um offset estável que muda devagar parece natural sem prejudicar a mira.
+    private Vector2 _jitterOffset;
+    private long _nextJitterRollTicks;
+    private const int JitterRerollMs = 350;
+    private readonly Random _rng = new();
 
     public AimController(GameController gameController)
     {
@@ -60,6 +71,12 @@ public sealed class AimController
         // Confinamento: limita o alvo a um círculo à volta do jogador no ecrã.
         if (ConfineToCircle)
             screen = Confine(screen);
+
+        // A3: aplica o offset de jitter (anti-robótico). O offset é pequeno e estável (re-rola a cada
+        // ~350ms), por isso não faz o cursor vibrar nem falhar o mob. O clamp à janela corre a seguir,
+        // garantindo que o cursor nunca sai do ecrã mesmo com o offset.
+        if (JitterRadius > 0f)
+            screen += GetJitter();
 
         // Suavização: desliza do último cursor para o novo alvo.
         var destination = screen;
@@ -116,6 +133,26 @@ public sealed class AimController
         }
         catch { }
         return entity.Pos;
+    }
+
+    /// <summary>
+    /// Offset de jitter atual. Re-rola para um novo ponto aleatório DENTRO de um círculo de raio
+    /// JitterRadius a cada JitterRerollMs; entre re-rolls devolve o mesmo offset (cursor estável).
+    /// Distribuição uniforme no disco (sqrt do raio) para não concentrar no centro.
+    /// </summary>
+    private Vector2 GetJitter()
+    {
+        var now = DateTime.UtcNow.Ticks;
+        if (now >= _nextJitterRollTicks)
+        {
+            var angle = _rng.NextDouble() * Math.PI * 2.0;
+            var radius = JitterRadius * Math.Sqrt(_rng.NextDouble());
+            _jitterOffset = new Vector2(
+                (float)(Math.Cos(angle) * radius),
+                (float)(Math.Sin(angle) * radius));
+            _nextJitterRollTicks = now + JitterRerollMs * TimeSpan.TicksPerMillisecond;
+        }
+        return _jitterOffset;
     }
 
     private Vector2 Confine(Vector2 targetScreen)

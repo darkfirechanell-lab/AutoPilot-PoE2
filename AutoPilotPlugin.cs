@@ -143,6 +143,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _modes.EliteRange = Settings.AttackRange.Value;
         _targets.EnableVisibility = Settings.UseVisibility.Value;
 
+        // A3: propaga o raio de randomização do cursor (0 = desligado).
+        _aim.JitterRadius = Settings.CursorJitter.Value;
+
         var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value.Key);
         if (!aimActive)
         {
