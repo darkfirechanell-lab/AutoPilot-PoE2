@@ -172,7 +172,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         if (newTargetId != previousTargetId)
         {
             if (newTargetId == null) ActionLog.Event("alvo PERDIDO");
-            else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} modo={_targets.CurrentMode}");
+            else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} | {_targets.DiagTargetPick}");
         }
 
         // Aim: aponta o cursor ao alvo (centro do corpo). Sem alvo, esquece o último cursor.
@@ -209,6 +209,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"aimActive={aimActive} combatEnabled={Settings.Combat.Enabled.Value}\n" +
                 $"alvo={(t == null ? "(nenhum)" : $"{t.Rarity} dist={_currentTarget.Distance:F0} id={t.Id}")}\n" +
                 $"mobs total={_targets.DiagTotal} cPeso={_targets.DiagWithWeight} visiveis={_targets.DiagVisible} maisperto={_targets.DiagNearestDist:F0}\n" +
+                $"pick: {_targets.DiagTargetPick}\n" +
                 $"{_routine.ComboDebug}\n" +
                 $"{_routine.FillerDebug}\n" +
                 $"{_aim.AimDebug}\n" +

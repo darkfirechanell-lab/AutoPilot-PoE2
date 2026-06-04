@@ -35,6 +35,11 @@ public sealed class TargetSelector
     public int DiagVisible { get; private set; }
     public float DiagNearestDist { get; private set; }
 
+    // Diagnóstico do SALTO de alvo: quantos elites (Rare/Unique) há, o peso do melhor vs do atual,
+    // e se o sticky manteve ou trocou. Para perceber porque o alvo salta com um boss presente.
+    public int DiagElites { get; private set; }       // nº de Rare/Unique no snapshot
+    public string DiagTargetPick { get; private set; } = ""; // resumo da decisão deste tick
+
     public TargetSelector(ModeSelector modes, WeightEngine weights, ClusterEngine clusters, RayCaster rays)
     {
         _modes = modes;
@@ -75,9 +80,17 @@ public sealed class TargetSelector
         DiagWithWeight = 0;
         DiagVisible = 0;
         DiagNearestDist = float.MaxValue;
+        DiagElites = 0;
         foreach (var m in entities.Monsters)
         {
             if (m.Distance < DiagNearestDist) DiagNearestDist = m.Distance;
+            try
+            {
+                var r = m.Entity.Rarity;
+                if (r == ExileCore2.Shared.Enums.MonsterRarity.Rare || r == ExileCore2.Shared.Enums.MonsterRarity.Unique)
+                    DiagElites++;
+            }
+            catch { }
             if (m.Weight <= 0f) continue;
             DiagWithWeight++;
             if (EnableVisibility && !_rays.IsVisible(entities.PlayerGridPos, m.Entity.GridPos)) continue;
@@ -90,11 +103,22 @@ public sealed class TargetSelector
         if (best == null)
         {
             _currentTargetId = 0;
+            DiagTargetPick = $"mode={mode} elites={DiagElites} best=null";
             return null;
         }
 
         // 5. Sticky: mantém o atual a não ser que o melhor o supere por margem após o cooldown.
         var chosen = ApplySticky(best, current, modeChanged);
+
+        // Diagnóstico do salto: peso do escolhido vs melhor vs atual, e se houve troca.
+        var keptSticky = current != null && chosen.Entity.Id == current.Entity.Id && best.Entity.Id != current.Entity.Id;
+        DiagTargetPick =
+            $"mode={mode} elites={DiagElites} " +
+            $"chosen={SafeRarity(chosen)} w={chosen.Weight:F1} " +
+            $"best={SafeRarity(best)} bw={best.Weight:F1} " +
+            $"cur={(current == null ? "-" : $"{SafeRarity(current)} cw={current.Weight:F1}")} " +
+            $"{(modeChanged ? "MODECHG " : "")}{(keptSticky ? "STICKY" : "")}";
+
         _currentTargetId = chosen.Entity.Id;
         return chosen;
     }
@@ -118,6 +142,11 @@ public sealed class TargetSelector
         }
 
         return current; // anti-flicker: fica no alvo atual
+    }
+
+    private static string SafeRarity(TrackedEntity t)
+    {
+        try { return t.Entity.Rarity.ToString(); } catch { return "?"; }
     }
 
     public void Reset()
