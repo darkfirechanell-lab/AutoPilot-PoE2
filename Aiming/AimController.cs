@@ -139,8 +139,12 @@ public sealed class AimController
     }
 
     /// <summary>
-    /// Posição de mundo do centro do corpo do alvo. entity.Pos = pés; somamos metade da altura do
-    /// modelo (Render.UnclampedHeight) para mirar o tronco. Fallback a entity.Pos sem Render.
+    /// Posição de mundo do centro do corpo do alvo. CÓPIA EXATA da fórmula do AutoMyAim (que acertava
+    /// bem): o ponto MÉDIO entre os pés e o topo = (Pos.Z + UnclampedHeight) / 2. Fallback a entity.Pos.
+    ///
+    /// ATENÇÃO aos parênteses: a versão anterior fazia `Pos.Z + Height/2` (pés + meia-altura), que dá
+    /// um Z MUITO mais alto que `(Pos.Z + Height)/2` para mobs altos → o cursor ia acima do corpo e,
+    /// em perspetiva isométrica, parecia desviado para o lado. Os bosses (modelos altos) sofriam mais.
     /// </summary>
     private static Vector3 BodyCenterWorld(Entity entity)
     {
@@ -148,7 +152,7 @@ public sealed class AimController
         {
             var render = entity.GetComponent<Render>();
             if (render != null)
-                return render.Pos with { Z = render.Pos.Z + render.UnclampedHeight / 2f };
+                return render.Pos with { Z = (render.Pos.Z + render.UnclampedHeight) / 2f };
         }
         catch { }
         return entity.Pos;
