@@ -33,6 +33,10 @@ public class AutoPilotSettings : ISettings
     [Menu("Attack Range", "Distância máxima ao alvo (unidades de grid).")]
     public RangeNode<float> AttackRange { get; set; } = new(100f, 5f, 600f);
 
+    [Menu("Proximal Tangibility: alcance", "Mobs com o mod 'Proximal Tangibility' são imunes à distância. " +
+        "Só são mirados quando estás MAIS PERTO que isto. Se o boss não for atacado quando já estás perto, AUMENTA.")]
+    public RangeNode<float> ProximalRange { get; set; } = new(25f, 5f, 100f);
+
     [Menu("Randomização do Cursor (px)", "Adiciona um offset aleatório pequeno ao cursor (anti-robótico). " +
         "0 = desligado (cursor exato no centro do mob). Valores altos podem fazer falhar mobs pequenos.")]
     public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);

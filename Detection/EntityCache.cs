@@ -63,16 +63,24 @@ public sealed class EntityCache
 
         foreach (var entity in source)
         {
-            if (!IsValidTarget(entity)) continue;
+            var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
+            if (!IsValidTarget(entity, dist)) continue;
 
             _monsters.Add(new TrackedEntity
             {
                 Entity = entity,
-                Distance = Vector2.Distance(_playerGridPos, entity.GridPos),
+                Distance = dist,
                 Rarity = ReadRarity(entity),
             });
         }
     }
+
+    /// <summary>
+    /// Limiar (unidades de grid) do Proximal Tangibility: um alvo com esse mod só é tangível/atacável
+    /// quando está MAIS PERTO que isto. De longe é imune → filtra-se (não desperdiça tiros). Ajustável
+    /// pelo utilizador. Default conservador (perto) — se ele não atacar o boss à distância certa, sobe.
+    /// </summary>
+    public static float ProximalTangibilityRange { get; set; } = 25f;
 
     /// <summary>Conta monstros vivos dentro de <paramref name="radius"/> de um ponto do grid.</summary>
     public int CountWithin(Vector2 gridCenter, float radius)
@@ -123,8 +131,9 @@ public sealed class EntityCache
     /// Um alvo só conta se for um monstro hostil, vivo, visível e ALVEJÁVEL E DANIFICÁVEL.
     /// Filtra invulnerabilidade por três vias (cobre clones de boss): a stat CannotBeDamaged,
     /// a flag IsTargetable, e buffs de imunidade. Atacar um alvo imune é desperdício de DPS.
+    /// O <paramref name="distance"/> serve para o Proximal Tangibility (imune só à distância).
     /// </summary>
-    private static bool IsValidTarget(Entity entity)
+    private static bool IsValidTarget(Entity entity, float distance)
     {
         if (entity == null) return false;
         if (!entity.IsValid || !entity.IsAlive || entity.IsDead) return false;
@@ -145,7 +154,26 @@ public sealed class EntityCache
         if (HasInvulnBuff(entity))
             return false;
 
+        // Proximal Tangibility: imune a ataques à DISTÂNCIA. Só é alvo válido quando estás PERTO
+        // (dist < limiar). De longe filtra-se — senão o aim desperdiçava-se nele e os tiros falhavam.
+        if (distance > ProximalTangibilityRange && HasProximalIntangibility(entity))
+            return false;
+
         return true;
+    }
+
+    private static bool HasProximalIntangibility(Entity entity)
+    {
+        try
+        {
+            if (!entity.TryGetComponent<Buffs>(out var buffs) || buffs?.BuffsList == null)
+                return false;
+            foreach (var b in buffs.BuffsList)
+                if (b?.Name != null && b.Name.Contains("proximal_intangibility", StringComparison.OrdinalIgnoreCase))
+                    return true;
+        }
+        catch { }
+        return false;
     }
 
     private static bool HasInvulnBuff(Entity entity)

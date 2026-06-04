@@ -150,6 +150,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // A3: propaga o raio de randomização do cursor (0 = desligado).
         _aim.JitterRadius = Settings.CursorJitter.Value;
 
+        // Proximal Tangibility: alcance a partir do qual o mob com esse mod passa a ser mirável.
+        Detection.EntityCache.ProximalTangibilityRange = Settings.ProximalRange.Value;
+
         var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value.Key);
         if (!aimActive)
         {
@@ -172,7 +175,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         if (newTargetId != previousTargetId)
         {
             if (newTargetId == null) ActionLog.Event("alvo PERDIDO");
-            else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} | {_targets.DiagTargetPick}");
+            else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} path={SafePath(_currentTarget.Entity)} | {_targets.DiagTargetPick}");
         }
 
         // Aim: aponta o cursor ao alvo (centro do corpo). Sem alvo, esquece o último cursor.
@@ -219,6 +222,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
+    }
+
+    /// <summary>Path do metadata da entidade (para identificar o clone do jogador e excluí-lo).</summary>
+    private static string SafePath(ExileCore2.PoEMemory.MemoryObjects.Entity e)
+    {
+        try { return e?.Path ?? "?"; } catch { return "?"; }
     }
 
     /// <summary>
