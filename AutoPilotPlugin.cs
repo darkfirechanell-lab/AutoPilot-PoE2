@@ -130,6 +130,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Liberta os taps cujo tempo expirou (substitui o Thread.Sleep por relógio real).
         _inputQueue.Pump();
 
+        // B2: invalida a cache de buffs no início do tick. A partir daqui, cada entidade é lida da
+        // memória só uma vez por tick; as ~8 consultas de buff da rotação reusam a snapshot.
+        Combat.BuffReader.NewTick();
+
         // Lê o estado de animação do jogador uma vez (Snipe stage, Barrage progress, etc.).
         _animation.Update();
 
