@@ -116,21 +116,27 @@ public sealed class IceShotRoutine : IRoutine
 
     // ── Rotações ────────────────────────────────────────────────────────────────────────────
 
-    // Ordem alinhada com o AutoMyAim (testada). No boss/elite, o combo frozen (Barrage→Snipe) tem
-    // PRIORIDADE quando o alvo está frozen — é o burst de dano; só depois Mark/Ice-Tipped/filler.
+    // Ordem (pedido do utilizador 2026-06-04):
+    //   FROZEN  → Tornado → Barrage → Snipe   (burst no congelado)
+    //   SENÃO   → Mark → Ice-Tipped → Salvo    (preparar/iniciar a luta)
+    //   FIM     → Ice Shot                      (filler, vai congelando)
+    // O Tornado tem PRIORIDADE no combo frozen, mas TAMBÉM sai fora do frozen pelo seu cooldown
+    // (mantém o blind/debuff sempre ativo no boss = mais dano, mesmo quando o alvo não está congelado).
+    // No boss o Tornado usa o cooldown de boss; no elite o cooldown normal.
     private void ExecuteBoss(RoutineContext ctx, Entity target)
     {
-        if (TryFrozenCombo(ctx, target)) return;
+        if (TryFrozenCombo(ctx, target, TornadoBossCooldownMs)) return;
+        if (TryTornado(ctx, TornadoBossCooldownMs)) return; // mantém o blind mesmo sem frozen
         if (TryMark(ctx, target)) return;
         if (TryIceTipped(ctx)) return;
-        if (TryTornado(ctx, TornadoBossCooldownMs)) return;
         if (TrySalvo(ctx, target)) return;
         TryFiller(ctx);
     }
 
     private void ExecuteElite(RoutineContext ctx, Entity target)
     {
-        if (UseSnipeOnRares && TryFrozenCombo(ctx, target)) return;
+        if (UseSnipeOnRares && TryFrozenCombo(ctx, target, CD_TORNADO)) return;
+        if (TryTornado(ctx, CD_TORNADO)) return; // mantém o blind mesmo sem frozen
         if (TryMark(ctx, target)) return;
         if (TryIceTipped(ctx)) return;
         if (TrySalvo(ctx, target)) return;
@@ -187,18 +193,23 @@ public sealed class IceShotRoutine : IRoutine
         return true;
     }
 
-    // ── Combo Barrage → Snipe (alvo frozen) ─────────────────────────────────────────────────
-    // CÓPIA EXATA do AutoMyAim (sem adicionar nada):
+    // ── Combo no alvo FROZEN: Tornado → Barrage → Snipe ─────────────────────────────────────
+    // Ordem pedida pelo utilizador: o Tornado entra PRIMEIRO no congelado (mantém o debuff/blind no
+    // boss = mais dano), depois o burst Barrage→Snipe.
+    //   0. Tornado (se pronto pelo seu cooldown). Não bloqueia a sequência: se em CD, segue.
     //   1. TryUseBarrage() → se disparou, return.
-    //   2. if (!CanUse(_lastBarrage, BarrageCommitMs)) return — espera o commit do Barrage.
+    //   2. Espera o commit do Barrage antes do Snipe (timer, como o AutoMyAim).
     //   3. BeginSnipe.
-    private bool TryFrozenCombo(RoutineContext ctx, Entity target)
+    private bool TryFrozenCombo(RoutineContext ctx, Entity target, int tornadoCooldownMs)
     {
         var frozen = BuffReader.Has(target, FROZEN);
         var snipe = ctx.Find(SNIPE);
         ComboDebug = $"{_rarityDebug} | frozen={frozen} sinceBarrage={(_cd.SinceMs(BARRAGE) > 99999 ? -1 : _cd.SinceMs(BARRAGE))}";
 
         if (!frozen) return false;
+
+        // 0. Tornado Shot primeiro no congelado. Se disparou, return (mantém o uptime do debuff).
+        if (TryTornado(ctx, tornadoCooldownMs)) return true;
 
         // 1. Barrage. Se disparou, return.
         if (TryUseBarrage(ctx)) return true;

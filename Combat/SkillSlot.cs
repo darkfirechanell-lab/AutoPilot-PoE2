@@ -53,6 +53,25 @@ public sealed class SkillSlot
         catch { return false; }
     }
 
+    // ── Confirmação de uso (do ActorSkill) — leitura defensiva para diagnóstico/rotação ────────
+    // SkillUseStage: estágio cru do uso da skill. IsUsing = a usar; IsChanneling = a canalizar;
+    // IsOnCooldown = entrou em cooldown (acabou de sair). Ver memória actorskill-use-confirmation.
+
+    /// <summary>Estágio de uso cru (byte) do ActorSkill. -1 se ilegível.</summary>
+    public int UseStage { get { try { return Live?.SkillUseStage ?? -1; } catch { return -1; } } }
+
+    /// <summary>True se a skill está a ser usada agora (SkillUseStage > 1).</summary>
+    public bool IsUsing { get { try { return Live?.IsUsing ?? false; } catch { return false; } } }
+
+    /// <summary>True se a skill está a canalizar (CastType == 10).</summary>
+    public bool IsChanneling { get { try { return Live?.IsChanneling ?? false; } catch { return false; } } }
+
+    /// <summary>True se a skill está em cooldown (acabou de ser usada).</summary>
+    public bool IsOnCooldown { get { try { return Live?.IsOnCooldown ?? false; } catch { return false; } } }
+
+    /// <summary>Contador total de usos. -1 se ilegível. Um incremento = a skill saiu.</summary>
+    public int TotalUses { get { try { return Live?.TotalUses ?? -1; } catch { return -1; } } }
+
     public override string ToString() =>
         !string.IsNullOrEmpty(DisplayName) ? DisplayName : (Name ?? "");
 }

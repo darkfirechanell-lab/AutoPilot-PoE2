@@ -212,8 +212,27 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{_routine.ComboDebug}\n" +
                 $"{_routine.FillerDebug}\n" +
                 $"{_aim.AimDebug}\n" +
+                $"{SkillUseDebugLine()}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
+    }
+
+    /// <summary>
+    /// DIAGNÓSTICO (não muda rotação): mostra o estado de USO de cada skill detetada — stage/using/
+    /// channel/cd/uses — para confirmar quais campos do ActorSkill são fiáveis nesta build ANTES de
+    /// construir a confirmação de uso em cima deles. Ver memória actorskill-use-confirmation.
+    /// </summary>
+    private string SkillUseDebugLine()
+    {
+        var sb = new System.Text.StringBuilder("skillUse:");
+        foreach (var s in Settings.Skills.Content)
+        {
+            if (s == null || string.IsNullOrEmpty(s.Name) || s.Live == null) continue;
+            // nome curto (sem o sufixo "Player") para a linha não ficar gigante.
+            var n = s.Name.EndsWith("Player") ? s.Name[..^6] : s.Name;
+            sb.Append($" {n}[st={s.UseStage} use={(s.IsUsing ? 1 : 0)} ch={(s.IsChanneling ? 1 : 0)} cd={(s.IsOnCooldown ? 1 : 0)} n={s.TotalUses}]");
+        }
+        return sb.ToString();
     }
 
     public override void Render()
