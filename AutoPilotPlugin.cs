@@ -213,8 +213,31 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{_routine.FillerDebug}\n" +
                 $"{_aim.AimDebug}\n" +
                 $"{SkillUseDebugLine()}\n" +
+                $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
+                $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
+    }
+
+    /// <summary>
+    /// DIAGNÓSTICO: lista os nomes de buffs/debuffs de uma entidade para o log em ficheiro. Serve
+    /// para DESCOBRIR que debuff aparece no boss quando a Mark é aplicada (e confirmar nomes de buffs
+    /// em geral). Leitura defensiva; "(nenhum)" se vazio, "?" em erro.
+    /// </summary>
+    private static string BuffNamesLine(ExileCore2.PoEMemory.MemoryObjects.Entity entity)
+    {
+        try
+        {
+            if (entity == null) return "(sem entidade)";
+            if (!entity.TryGetComponent<ExileCore2.PoEMemory.Components.Buffs>(out var buffs) || buffs?.BuffsList == null)
+                return "(ilegivel)";
+            var names = new List<string>();
+            foreach (var b in buffs.BuffsList)
+                if (!string.IsNullOrEmpty(b?.Name) && !names.Contains(b.Name))
+                    names.Add(b.Name);
+            return names.Count == 0 ? "(nenhum)" : string.Join(", ", names);
+        }
+        catch { return "?"; }
     }
 
     /// <summary>
