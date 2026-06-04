@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AutoPilot.Aiming;
 using AutoPilot.Combat;
 using AutoPilot.Combat.Routines;
@@ -41,6 +42,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
     private TrackedEntity _currentTarget;
     private bool _aimToggled;
+    private bool _wasProcessing; // estado anterior do ShouldProcess (para marcar transições no log).
 
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
@@ -110,13 +112,20 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         if (!ShouldProcess())
         {
+            // Marca a transição ativo→parado uma vez (diagnóstico do "atacar paredes" ao retomar).
+            if (_wasProcessing) { ActionLog.Event("PAROU (ShouldProcess=false: painel aberto ou plugin off)"); _wasProcessing = false; }
+
             // Se a routine está a canalizar, deixa-a fechar o canal com segurança antes de parar.
             if (_routine.IsBusy) { _ctx.Target = null; _routine.Execute(_ctx); }
             _routine.Reset();
             _skills.ReleaseAll();
+            _aim.Reset();            // esquece o último cursor — ao retomar, mira do zero (sem arrastar posição velha).
             _currentTarget = null;
             return;
         }
+
+        // Marca a transição parado→ativo (o 1º tick após fechar o painel — onde o bug aparecia).
+        if (!_wasProcessing) { ActionLog.Event("RETOMOU (ShouldProcess=true)"); _wasProcessing = true; }
 
         // Liberta os taps cujo tempo expirou (substitui o Thread.Sleep por relógio real).
         _inputQueue.Pump();
@@ -265,12 +274,42 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         {
             if (!Settings.Enable) return false;
             if (GameController is not { InGame: true, Player: not null }) return false;
-            return !GameController.Settings.CoreSettings.Enable;
+            if (GameController.Settings.CoreSettings.Enable) return false;
+
+            // A2: pára o combate quando há painéis de UI abertos (inventário/loja/tree). Copiado do
+            // AutoMyAim. Ao fechar o painel, ShouldProcess volta a true e o Tick recomeça do zero.
+            if (Settings.PauseOnPanels.Value && AreUiPanelsBlocking())
+                return false;
+
+            return true;
         }
         catch (Exception err)
         {
             DebugWindow.LogError($"[CombatRoutine.ShouldProcess] {err}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Há algum painel de UI aberto que deva bloquear o combate? (inventário, loja, skill tree…)
+    /// Copiado letra a letra do AutoMyAim: qualquer painel fullscreen, o painel esquerdo (inventário)
+    /// ou o direito (loja/stash) visível conta como bloqueio. Falha fechado (true) em erro.
+    /// </summary>
+    private bool AreUiPanelsBlocking()
+    {
+        try
+        {
+            var ui = GameController?.IngameState?.IngameUi;
+            if (ui == null) return false;
+            if (ui.FullscreenPanels != null && ui.FullscreenPanels.Any(x => x.IsVisible)) return true;
+            if (ui.OpenLeftPanel != null && ui.OpenLeftPanel.IsVisible) return true;
+            if (ui.OpenRightPanel != null && ui.OpenRightPanel.IsVisible) return true;
+            return false;
+        }
+        catch (Exception err)
+        {
+            DebugWindow.LogError($"[CombatRoutine.AreUiPanelsBlocking] {err}");
+            return true; // em dúvida, bloqueia (mais seguro do que disparar com a UI aberta).
         }
     }
 }

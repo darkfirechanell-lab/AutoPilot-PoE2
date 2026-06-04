@@ -26,6 +26,10 @@ public class AutoPilotSettings : ISettings
     [Menu("Filtrar por Visibilidade (raycast)", "Ignora mobs atrás de paredes. Se o aim não foca nada, DESLIGA isto para testar se é o raycast.")]
     public ToggleNode UseVisibility { get; set; } = new(true);
 
+    [Menu("Parar com painéis abertos", "Pausa o combate quando abres o inventário/loja/skill tree. Ao fechar, retoma. " +
+        "Igual ao AutoMyAim. Se causar problemas ao retomar, desliga.")]
+    public ToggleNode PauseOnPanels { get; set; } = new(true);
+
     [Menu("Attack Range", "Distância máxima ao alvo (unidades de grid).")]
     public RangeNode<float> AttackRange { get; set; } = new(100f, 5f, 600f);
 
