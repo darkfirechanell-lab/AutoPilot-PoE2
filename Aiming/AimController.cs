@@ -66,12 +66,28 @@ public sealed class AimController
         destination = ClampToWindow(destination, rect);
 
         // SetCursorPos espera coords de ecrã absolutas → soma o canto da janela.
-        ExileCore2.Input.SetCursorPos(destination + topLeft);
+        var absolute = destination + topLeft;
+        ExileCore2.Input.SetCursorPos(absolute);
+
+        // DIAGNÓSTICO do "atacar paredes": compara onde o mob está no ecrã (screen), onde mandámos o
+        // cursor (abs), e onde o cursor REALMENTE ficou (mouse). Se 'mouse' difere de 'abs', há erro
+        // de coordenadas (ex.: WorldToScreen já era absoluto e somámos topLeft a dobrar).
+        try
+        {
+            var realMouse = ExileCore2.Input.MousePosition;
+            AimDebug = $"screen=({screen.X:F0},{screen.Y:F0}) topLeft=({topLeft.X:F0},{topLeft.Y:F0}) " +
+                       $"abs=({absolute.X:F0},{absolute.Y:F0}) mouse=({realMouse.X:F0},{realMouse.Y:F0}) " +
+                       $"win=({rect.Width:F0}x{rect.Height:F0})";
+        }
+        catch { }
 
         _lastCursor = destination;
         _hasLast = true;
         return destination;
     }
+
+    /// <summary>Diagnóstico da última mira (HUD/log). Mostra se o cursor vai ao sítio certo.</summary>
+    public string AimDebug { get; private set; } = "";
 
     /// <summary>Esquece o último cursor (ex.: ao perder alvo) para a suavização recomeçar limpa.</summary>
     public void Reset()

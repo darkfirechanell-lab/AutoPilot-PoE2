@@ -35,6 +35,7 @@ public sealed class SkillExecutor
     public void Tap(Keys key, int tapHoldMs = InputQueue.DefaultTapHoldMs)
     {
         if (key == Keys.None) return;
+        ActionLog.Action("TAP", key, $"hold={tapHoldMs}ms");
         _input.Tap(key, tapHoldMs);
     }
 
@@ -42,6 +43,8 @@ public sealed class SkillExecutor
     public void Hold(Keys key)
     {
         if (key == Keys.None) return;
+        // Só regista quando ARRANCA o hold (a tecla muda); idempotente não deve encher o log.
+        if (_input.HeldKey != key) ActionLog.Action("HOLD", key);
         _input.Hold(key);
     }
 
@@ -52,8 +55,16 @@ public sealed class SkillExecutor
     public void Channel(Keys key) => Hold(key);
 
     /// <summary>Liberta a tecla segurada (fim de hold/channel). Seguro chamar sem nada segurado.</summary>
-    public void Release() => _input.ReleaseHold();
+    public void Release()
+    {
+        if (_input.IsHolding) ActionLog.Action("RELEASE", _input.HeldKey);
+        _input.ReleaseHold();
+    }
 
     /// <summary>Larga tudo imediatamente. Usar ao parar combate / mudar de área / perder alvo.</summary>
-    public void ReleaseAll() => _input.ReleaseAll();
+    public void ReleaseAll()
+    {
+        if (_input.IsHolding) ActionLog.Action("RELEASE-ALL", _input.HeldKey);
+        _input.ReleaseAll();
+    }
 }

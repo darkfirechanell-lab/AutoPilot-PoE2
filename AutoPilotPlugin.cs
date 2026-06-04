@@ -148,7 +148,16 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _entities.Rebuild();
 
         // Targeting dinâmico: modo (Danger/Elite/Normal) → pesos → cluster → visibilidade → sticky.
+        var previousTargetId = _currentTarget?.Entity?.Id;
         _currentTarget = _targets.SelectTarget(_entities);
+
+        // Marca no ActionLog quando o alvo MUDA (contexto para a sequência de teclas a seguir).
+        var newTargetId = _currentTarget?.Entity?.Id;
+        if (newTargetId != previousTargetId)
+        {
+            if (newTargetId == null) ActionLog.Event("alvo PERDIDO");
+            else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} modo={_targets.CurrentMode}");
+        }
 
         // Aim: aponta o cursor ao alvo (centro do corpo). Sem alvo, esquece o último cursor.
         if (_currentTarget != null)
@@ -169,6 +178,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         // Escreve o estado para ficheiro (diagnóstico fora do jogo) quando o Debug está ligado.
         DebugLog.Enabled = Settings.ShowDebug.Value;
+        ActionLog.Enabled = Settings.ShowDebug.Value;
         if (Settings.ShowDebug.Value)
         {
             var t = _currentTarget?.Entity;
@@ -178,6 +188,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"mobs total={_targets.DiagTotal} cPeso={_targets.DiagWithWeight} visiveis={_targets.DiagVisible} maisperto={_targets.DiagNearestDist:F0}\n" +
                 $"{_routine.ComboDebug}\n" +
                 $"{_routine.FillerDebug}\n" +
+                $"{_aim.AimDebug}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
     }
