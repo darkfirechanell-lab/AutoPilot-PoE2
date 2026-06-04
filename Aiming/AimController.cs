@@ -50,6 +50,13 @@ public sealed class AimController
         var rect = _gc.Window.GetWindowRectangle();
         var topLeft = rect.TopLeft;
 
+        // A1: rejeita projeções absurdas. WorldToScreen de um ponto atrás da câmara devolve coords
+        // gigantes (não-NaN) que disparariam o cursor para o infinito. Se o alvo está MUITO fora da
+        // janela (além de uma margem larga), não miramos — é lixo de projeção, não um mob real.
+        // O clamp normal trata de mobs ligeiramente fora; isto só apanha o caso patológico.
+        if (!IsPointReasonable(screen, rect))
+            return null;
+
         // Confinamento: limita o alvo a um círculo à volta do jogador no ecrã.
         if (ConfineToCircle)
             screen = Confine(screen);
@@ -123,6 +130,24 @@ public sealed class AimController
         }
         catch { }
         return targetScreen;
+    }
+
+    /// <summary>
+    /// O ponto projetado é plausível? Aceita qualquer coisa dentro da janela mais uma margem larga
+    /// (mobs um pouco fora do ecrã ainda valem — o clamp puxa-os para a borda). Só rejeita valores
+    /// claramente impossíveis: infinitos, ou muito além da janela (projeção de algo atrás da câmara).
+    /// </summary>
+    private static bool IsPointReasonable(Vector2 p, RectangleF rect)
+    {
+        if (float.IsNaN(p.X) || float.IsNaN(p.Y) || float.IsInfinity(p.X) || float.IsInfinity(p.Y))
+            return false;
+
+        // Margem = uma janela inteira para cada lado. Generoso de propósito: nunca rejeitar um mob real.
+        var marginX = rect.Width;
+        var marginY = rect.Height;
+        if (p.X < -marginX || p.X > rect.Width + marginX) return false;
+        if (p.Y < -marginY || p.Y > rect.Height + marginY) return false;
+        return true;
     }
 
     private static Vector2 ClampToWindow(Vector2 pos, RectangleF rect)
