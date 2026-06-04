@@ -41,11 +41,22 @@ public class AutoPilotSettings : ISettings
         "0 = desligado (cursor exato no centro do mob). Valores altos podem fazer falhar mobs pequenos.")]
     public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);
 
+    [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
+        "build de cajado (Whirling Assault / Tempest Bell / Killing Palm / Charged Staff / Rend).")]
+    public ListNode Routine { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff" },
+        Value = "Ice Shot",
+    };
+
     [Submenu]
     public CombatSettings Combat { get; set; } = new();
 
     [Submenu]
     public IceShotSettings IceShot { get; set; } = new();
+
+    [Submenu]
+    public StaffSettings Staff { get; set; } = new();
 
     [Menu("Re-detetar Teclas", "Limpa e volta a atribuir automaticamente as teclas de todas as skills (usa se ficaram erradas).")]
     public ButtonNode RedetectKeys { get; set; } = new();
@@ -93,4 +104,26 @@ public class IceShotSettings
         "Se o Snipe corta o Barrage (sem dano), AUMENTA. Se o Snipe demora a entrar, reduz. Rede de segurança " +
         "enquanto a deteção automática de fim de animação não está afinada.")]
     public RangeNode<int> BarrageCommitMs { get; set; } = new(400, 0, 1500);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class StaffSettings
+{
+    [Menu("Manter Charged Staff", "Reaplica o Charged Staff sempre que o buff cai (coração da build). " +
+        "Desliga só para testar.")]
+    public ToggleNode MaintainChargedStaff { get; set; } = new(true);
+
+    [Menu("Min Power Charges", "Killing Palm dispara para repor cargas quando estás ABAIXO deste número. " +
+        "(Se as cargas forem ilegíveis, o Killing Palm cai num modo por cooldown — vê a nota A CONFIRMAR no código.)")]
+    public RangeNode<int> MinPowerCharges { get; set; } = new(3, 0, 10);
+
+    [Menu("Usar Rend (burst)", "Reaplica Rend em boss/raros para o buff de dano. Desliga para rares rápidos.")]
+    public ToggleNode UseRend { get; set; } = new(true);
+
+    [Menu("Usar Hollow Form (boss)", "Ativa Hollow Form na abertura do boss.")]
+    public ToggleNode UseHollowForm { get; set; } = new(true);
+
+    [Menu("Duração do sino (ms)", "Tempo estimado que o Tempest Bell dura antes de ser reposto (o 'loop' do boss). " +
+        "Ajusta à duração real do teu sino.")]
+    public RangeNode<int> TempestBellDurationMs { get; set; } = new(6000, 1000, 20000);
 }

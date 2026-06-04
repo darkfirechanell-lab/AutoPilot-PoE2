@@ -36,7 +36,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
     private AnimationReader _animation;
     private SkillDetector _skillDetector;
-    private IceShotRoutine _routine;
+    private IceShotRoutine _iceShot;
+    private StaffRoutine _staff;
+    private IRoutine _routine;        // a routine ativa (selecionada pelo dropdown)
+    private string _lastRoutineName;  // para detetar mudança no dropdown e fazer Reset
     private RoutineContext _ctx;
     private CombatHud _hud;
 
@@ -68,7 +71,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         _animation = new AnimationReader(GameController);
         _skillDetector = new SkillDetector(GameController);
-        _routine = new IceShotRoutine();
+        _iceShot = new IceShotRoutine();
+        _staff = new StaffRoutine();
+        _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
         _hud = new CombatHud();
         _ctx = new RoutineContext
         {
@@ -192,12 +197,14 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             _ctx.CanHit = true;
 
         // Routine: usa as skills. Corre mesmo sem alvo SE estiver a canalizar (fecha o canal).
+        // Reage à seleção do dropdown ANTES de aplicar settings/executar (faz Reset se mudou).
+        _routine = SelectRoutine();
         if (Settings.Combat.Enabled.Value)
         {
             _ctx.Target = _currentTarget;
             if (_currentTarget != null || _routine.IsBusy)
             {
-                ApplyIceShotSettings();
+                ApplyRoutineSettings();
                 _routine.Execute(_ctx);
             }
         }
@@ -213,9 +220,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"alvo={(t == null ? "(nenhum)" : $"{t.Rarity} dist={_currentTarget.Distance:F0} id={t.Id}")}\n" +
                 $"mobs total={_targets.DiagTotal} cPeso={_targets.DiagWithWeight} visiveis={_targets.DiagVisible} maisperto={_targets.DiagNearestDist:F0}\n" +
                 $"pick: {_targets.DiagTargetPick}\n" +
-                $"{_routine.ComboDebug}\n" +
-                $"{_routine.BarrageDebug}\n" +
-                $"{_routine.FillerDebug}\n" +
+                $"{RoutineDebug()}\n" +
                 $"{_aim.AimDebug}\n" +
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
@@ -302,8 +307,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
             string dbg = null;
             if (Settings.ShowDebug.Value)
-                dbg = _routine.ComboDebug + "\n"
-                    + _routine.FillerDebug + "\n"
+                dbg = RoutineDebug() + "\n"
                     + _skillDetector.DebugSkillSlots(Settings.Skills.Content);
 
             _hud.Render(GameController, Graphics, Settings.ShowDebug.Value,
@@ -342,13 +346,53 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         catch (Exception err) { DebugWindow.LogError($"[CombatRoutine.SyncSkills] {err}"); }
     }
 
-    /// <summary>Propaga os settings IceShot do utilizador para a routine antes de a executar.</summary>
-    private void ApplyIceShotSettings()
+    /// <summary>
+    /// Devolve a routine correspondente ao dropdown <see cref="AutoPilotSettings.Routine"/>. Se a
+    /// seleção mudou desde o último tick, faz Reset à routine anterior (larga teclas/estado) antes de
+    /// trocar — senão um hold a meio podia ficar preso ao mudar de build no menu.
+    /// </summary>
+    private IRoutine SelectRoutine()
     {
-        _routine.MinSalvoSeals = Settings.IceShot.MinSalvoSeals.Value;
-        _routine.UseSnipeOnRares = Settings.IceShot.UseSnipeOnRares.Value;
-        _routine.TornadoBossCooldownMs = Settings.IceShot.TornadoBossCooldownMs.Value;
-        _routine.BarrageCommitMs = Settings.IceShot.BarrageCommitMs.Value;
+        var name = Settings.Routine?.Value ?? "Ice Shot";
+        IRoutine chosen = name == "Staff" ? _staff : _iceShot;
+
+        if (_lastRoutineName != name)
+        {
+            // Larga o que a routine anterior estivesse a segurar antes de trocar.
+            _routine?.Reset();
+            _skills?.ReleaseAll();
+            _lastRoutineName = name;
+        }
+        return chosen;
+    }
+
+    /// <summary>Linhas de diagnóstico da routine ATIVA (cada uma expõe as suas próprias).</summary>
+    private string RoutineDebug()
+    {
+        switch (_routine)
+        {
+            case IceShotRoutine ice:
+                return $"{ice.ComboDebug}\n{ice.BarrageDebug}\n{ice.FillerDebug}";
+            case StaffRoutine staff:
+                return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.FillerDebug}";
+            default:
+                return "";
+        }
+    }
+
+    /// <summary>Propaga os settings do utilizador para a routine ativa antes de a executar.</summary>
+    private void ApplyRoutineSettings()
+    {
+        _iceShot.MinSalvoSeals = Settings.IceShot.MinSalvoSeals.Value;
+        _iceShot.UseSnipeOnRares = Settings.IceShot.UseSnipeOnRares.Value;
+        _iceShot.TornadoBossCooldownMs = Settings.IceShot.TornadoBossCooldownMs.Value;
+        _iceShot.BarrageCommitMs = Settings.IceShot.BarrageCommitMs.Value;
+
+        _staff.MaintainChargedStaff = Settings.Staff.MaintainChargedStaff.Value;
+        _staff.MinPowerCharges = Settings.Staff.MinPowerCharges.Value;
+        _staff.UseRend = Settings.Staff.UseRend.Value;
+        _staff.UseHollowForm = Settings.Staff.UseHollowForm.Value;
+        _staff.TempestBellDurationMs = Settings.Staff.TempestBellDurationMs.Value;
     }
 
     /// <summary>
