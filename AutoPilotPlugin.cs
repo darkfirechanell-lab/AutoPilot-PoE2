@@ -181,6 +181,13 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         else
             _aim.Reset();
 
+        // C1: o cursor está em cima do alvo? Usa o erro de mira que o AIM calculou ESTE tick (sem o
+        // lag do MousePosition). Se o C1 estiver desligado, CanHit é sempre true (nunca bloqueia).
+        if (Settings.Combat.RequireCursorOnTarget.Value)
+            _ctx.CanHit = _aim.LastAimErrorPx <= Settings.Combat.CursorOnTargetTolerance.Value;
+        else
+            _ctx.CanHit = true;
+
         // Routine: usa as skills. Corre mesmo sem alvo SE estiver a canalizar (fecha o canal).
         if (Settings.Combat.Enabled.Value)
         {

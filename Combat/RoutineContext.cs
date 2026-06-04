@@ -22,6 +22,13 @@ public sealed class RoutineContext
     /// <summary>O alvo escolhido pelo targeting neste tick (pode ser null).</summary>
     public TrackedEntity Target { get; set; }
 
+    /// <summary>
+    /// C1: o cursor está suficientemente em cima do alvo para acertar? Default true (se o C1 estiver
+    /// desligado, nunca bloqueia). A routine consulta isto para skills de DANO DIRETO (Ice Shot,
+    /// Barrage). NÃO bloqueia Mark (utilitária) nem o fecho de canais já em curso.
+    /// </summary>
+    public bool CanHit { get; set; } = true;
+
     /// <summary>As skills configuradas/detetadas, com a ref viva já religada.</summary>
     public List<SkillSlot> SkillSlots { get; init; }
 

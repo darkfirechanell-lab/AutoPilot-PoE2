@@ -31,6 +31,12 @@ public sealed class AimController
     // (px) de um offset aleatório aplicado ao alvo, para o movimento não ser robótico-perfeito.
     public float JitterRadius { get; set; } = 0f;
 
+    // C1: erro de mira do último AimAt = distância (px no ecrã) entre o centro do corpo do alvo e
+    // onde o cursor foi realmente posto ESTE tick. ~0 normalmente; só cresce quando o clamp puxou o
+    // cursor (alvo fora do ecrã/na borda) ou o jitter desviou. SEM lag: usa o destino que o aim
+    // calculou agora, não o Input.MousePosition (que reflete o tick anterior). float.MaxValue = sem mira.
+    public float LastAimErrorPx { get; private set; } = float.MaxValue;
+
     private Vector2 _lastCursor;
     private bool _hasLast;
 
@@ -51,6 +57,10 @@ public sealed class AimController
     /// </summary>
     public Vector2? AimAt(TrackedEntity target)
     {
+        // Sem mira válida até prova em contrário: se sairmos por null, o erro fica MaxValue e o C1
+        // bloqueia o dano (não disparar quando o alvo não é projetável).
+        LastAimErrorPx = float.MaxValue;
+
         if (target?.Entity == null) return null;
 
         var world = BodyCenterWorld(target.Entity);
@@ -67,6 +77,10 @@ public sealed class AimController
         // O clamp normal trata de mobs ligeiramente fora; isto só apanha o caso patológico.
         if (!IsPointReasonable(screen, rect))
             return null;
+
+        // Centro do corpo do alvo no ecrã, ANTES de qualquer desvio (confine/jitter/clamp). É o ponto
+        // contra o qual medimos o erro de mira do C1 — "o cursor ficou em cima do mob?".
+        var bodyScreen = screen;
 
         // Confinamento: limita o alvo a um círculo à volta do jogador no ecrã.
         if (ConfineToCircle)
@@ -89,6 +103,10 @@ public sealed class AimController
         // Clamp à área visível da janela (em coords locais à janela).
         destination = ClampToWindow(destination, rect);
 
+        // C1: erro de mira = distância entre onde o cursor ficou (destination, ESTE tick) e o centro
+        // do corpo do alvo. Sem lag (não lê MousePosition). Grande = alvo fora do ecrã / clamp puxou.
+        LastAimErrorPx = Vector2.Distance(destination, bodyScreen);
+
         // SetCursorPos espera coords de ecrã absolutas → soma o canto da janela.
         var absolute = destination + topLeft;
         ExileCore2.Input.SetCursorPos(absolute);
@@ -101,7 +119,7 @@ public sealed class AimController
             var realMouse = ExileCore2.Input.MousePosition;
             AimDebug = $"screen=({screen.X:F0},{screen.Y:F0}) topLeft=({topLeft.X:F0},{topLeft.Y:F0}) " +
                        $"abs=({absolute.X:F0},{absolute.Y:F0}) mouse=({realMouse.X:F0},{realMouse.Y:F0}) " +
-                       $"win=({rect.Width:F0}x{rect.Height:F0})";
+                       $"errPx={LastAimErrorPx:F0} win=({rect.Width:F0}x{rect.Height:F0})";
         }
         catch { }
 
@@ -117,6 +135,7 @@ public sealed class AimController
     public void Reset()
     {
         _hasLast = false;
+        LastAimErrorPx = float.MaxValue; // sem alvo = sem mira válida → C1 bloqueia dano.
     }
 
     /// <summary>

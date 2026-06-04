@@ -62,6 +62,15 @@ public class CombatSettings
 
     [Menu("Cursor Range", "Quão perto o cursor tem de estar do alvo antes de usar skills.")]
     public RangeNode<float> CursorRange { get; set; } = new(20f, 1f, 100f);
+
+    [Menu("C1: Só atacar com cursor no alvo", "Não dispara skills de dano (Ice Shot/Barrage) se o cursor não estiver " +
+        "em cima do alvo (ex.: alvo fora do ecrã). Usa a posição que o AIM calcula (sem lag), por isso a tolerância " +
+        "pode ser apertada. Não afeta Mark nem canais já a decorrer. Desligado por defeito.")]
+    public ToggleNode RequireCursorOnTarget { get; set; } = new(false);
+
+    [Menu("C1: Tolerância (px)", "Distância máxima (px no ecrã) entre o cursor e o centro do alvo para considerar que " +
+        "vai acertar. Menor = mais apertado. Só conta se 'Só atacar com cursor no alvo' estiver ligado.")]
+    public RangeNode<float> CursorOnTargetTolerance { get; set; } = new(35f, 5f, 150f);
 }
 
 [Submenu(CollapsedByDefault = true)]

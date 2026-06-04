@@ -153,8 +153,10 @@ public sealed class IceShotRoutine : IRoutine
         // Diagnóstico do filler (a skill que DEVE sempre disparar). Mostra porque é que (não) sai.
         FillerDebug = $"filler: cd={_cd.Ready(ICE_SHOT, CD_ICE_SHOT)} " +
                       $"found={(s == null ? "null" : "ok")} ready={(s == null ? "-" : s.IsReady.ToString())} " +
-                      $"key={(s == null ? "-" : s.Key.Value.Key.ToString())}";
+                      $"key={(s == null ? "-" : s.Key.Value.Key.ToString())} canHit={ctx.CanHit}";
 
+        // C1: Ice Shot é dano direto — não dispara se o cursor não está em cima do alvo.
+        if (!ctx.CanHit) return;
         if (!_cd.Ready(ICE_SHOT, CD_ICE_SHOT)) return;
         if (s == null || !s.IsReady) return;
         ctx.Skills.Tap(s.Key.Value.Key, s.TapHoldMs.Value);
@@ -204,8 +206,9 @@ public sealed class IceShotRoutine : IRoutine
         // 2. Espera a animação do Barrage acabar antes do Snipe (timer simples, como o AutoMyAim).
         if (!_cd.Ready(BARRAGE, BarrageCommitMs)) return true;
 
-        // 3. Snipe.
-        if (snipe != null && snipe.Key.Value.Key != Keys.None && snipe.IsReady)
+        // 3. Snipe. C1: só COMEÇA o canal se o cursor está no alvo (é dano direto). Um canal já a
+        // decorrer não é afetado por isto — este gate só impede iniciar um novo.
+        if (ctx.CanHit && snipe != null && snipe.Key.Value.Key != Keys.None && snipe.IsReady)
         {
             BeginChannel(ctx, Channel.Snipe, snipe.Key.Value.Key, target.Id);
             return true;
@@ -217,6 +220,7 @@ public sealed class IceShotRoutine : IRoutine
     // Barrage: cópia do TryUseBarrage do AutoMyAim. Tap explícito, anti-spam por CD_BARRAGE.
     private bool TryUseBarrage(RoutineContext ctx)
     {
+        if (!ctx.CanHit) return false; // C1: Barrage é dano direto — exige cursor no alvo.
         if (!_cd.Ready(BARRAGE, CD_BARRAGE)) return false;
         var s = ctx.Find(BARRAGE);
         if (s == null || !s.IsReady) return false;
