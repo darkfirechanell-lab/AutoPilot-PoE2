@@ -120,6 +120,14 @@ public class StaffSettings
     [Menu("Usar Rend (burst)", "Reaplica Rend em boss/raros para o buff de dano. Desliga para rares rápidos.")]
     public ToggleNode UseRend { get; set; } = new(true);
 
+    [Menu("Usar Falling Thunder", "Dispara o Falling Thunder na janela ótima: Charged Staff ATIVO e Power " +
+        "Charges cheias. Precisa de ler o buff do Charged Staff e as charges (ver nota A CONFIRMAR no código).")]
+    public ToggleNode UseFallingThunder { get; set; } = new(true);
+
+    [Menu("Falling Thunder: charges", "Quantas Power Charges são precisas (cheias) para o Falling Thunder " +
+        "disparar, com o Charged Staff ativo. Ex.: 5.")]
+    public RangeNode<int> FallingThunderCharges { get; set; } = new(5, 1, 10);
+
     [Menu("Usar Hollow Form (boss)", "Ativa Hollow Form na abertura do boss.")]
     public ToggleNode UseHollowForm { get; set; } = new(true);
 

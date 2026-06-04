@@ -40,13 +40,18 @@ public sealed class StaffRoutine : IRoutine
     // ── Nomes de skills (memória — preenchidos pela auto-deteção) ───────────────────────────
     // Estes são os nomes "...Player" que a barra reporta. A CONFIRMAR: corre o jogo com Debug
     // ligado e confirma no HUD (DebugSkillSlots) os nomes exatos das tuas skills.
-    private const string WHIRLING_ASSAULT = "WhirlingAssaultPlayer"; // A CONFIRMAR
-    private const string KILLING_PALM = "KillingPalmPlayer";         // A CONFIRMAR
-    private const string CHARGED_STAFF = "ChargedStaffPlayer";       // A CONFIRMAR
-    private const string TEMPEST_BELL = "TempestBellPlayer";         // A CONFIRMAR
-    private const string REND = "RendPlayer";                        // A CONFIRMAR
-    private const string HOLLOW_FORM = "HollowFormPlayer";           // A CONFIRMAR
-    private const string HERALD_OF_ICE = "HeraldOfIcePlayer";        // A CONFIRMAR
+    // ✅ Nomes CONFIRMADOS pela barra do jogador (skillName interno, 2026-06-04).
+    private const string WHIRLING_ASSAULT = "WhirlingAssaultPlayer"; // ✅ confirmado
+    private const string KILLING_PALM = "KillingPalmPlayer";         // ✅ confirmado
+    private const string CHARGED_STAFF = "ChargedStaffPlayer";       // ✅ confirmado
+    private const string TEMPEST_BELL = "TempestBellPlayer";         // ✅ confirmado
+    private const string REND = "WyvernRendPlayer";                  // ✅ confirmado (era "RendPlayer")
+    private const string FALLING_THUNDER = "FallingThunderPlayer";   // ✅ confirmado (skill nova)
+    // ❌ Estas DUAS não apareceram na barra detetada — provavelmente a build não as usa. Ficam aqui
+    // inertes: ctx.Find() devolve null e os Try... saem sem fazer nada. Se as adicionares à barra,
+    // confirma o nome interno e atualiza.
+    private const string HOLLOW_FORM = "HollowFormPlayer";           // A CONFIRMAR (não detetada)
+    private const string HERALD_OF_ICE = "HeraldOfIcePlayer";        // A CONFIRMAR (não detetada)
 
     // ── Buffs/charges (nomes internos do jogo) — A CONFIRMAR ────────────────────────────────
     // Power Charges: no log da build de arco vimos "frenzy_charge" e "ice_bite" como charges. As
@@ -74,6 +79,7 @@ public sealed class StaffRoutine : IRoutine
     private const int CD_REND = 800;           // re-tentar reaplicar Rend
     private const int CD_HOLLOW_FORM = 1000;   // ativar Hollow Form
     private const int CD_HERALD = 3000;        // só ligar a reserva se cair
+    private const int CD_FALLING_THUNDER = 300; // anti-spam; a condição real é CS ativo + charges cheias
 
     // Timeouts de commit (segurar a tecla até confirmar) — mesma rede de segurança do IceShot.
     private const int KILLING_PALM_COMMIT_MS = 500;
@@ -81,6 +87,7 @@ public sealed class StaffRoutine : IRoutine
     private const int TEMPEST_BELL_COMMIT_MS = 600;
     private const int REND_COMMIT_MS = 500;
     private const int HOLLOW_FORM_COMMIT_MS = 600;
+    private const int FALLING_THUNDER_COMMIT_MS = 600;
 
     // ── Limiares configuráveis (ligados aos settings na integração) ─────────────────────────
     /// <summary>Power Charges abaixo das quais o Killing Palm dispara para reabastecer.</summary>
@@ -94,11 +101,15 @@ public sealed class StaffRoutine : IRoutine
     public int TempestBellDurationMs { get; set; } = 6000;
     /// <summary>Manter Charged Staff sempre ativo (reaplicar quando o buff cai). Coração da build.</summary>
     public bool MaintainChargedStaff { get; set; } = true;
+    /// <summary>Usar Falling Thunder. Só dispara na janela ótima (Charged Staff ativo + charges cheias).</summary>
+    public bool UseFallingThunder { get; set; } = true;
+    /// <summary>Power Charges necessárias para o Falling Thunder disparar (a "janela cheia", ex.: 5).</summary>
+    public int FallingThunderCharges { get; set; } = 5;
 
     private readonly CooldownTracker _cd = new();
 
     // Estado de canalização (uma máquina só, partilhada — igual ao IceShot).
-    private enum Channel { None, KillingPalm, ChargedStaff, TempestBell, Rend, HollowForm }
+    private enum Channel { None, KillingPalm, ChargedStaff, TempestBell, Rend, HollowForm, FallingThunder }
     private Channel _channel;
     private long _channelStartTicks;
     private uint _channelTargetId;
@@ -153,17 +164,19 @@ public sealed class StaffRoutine : IRoutine
     // (Herald of Ice trata das explosões em cadeia sozinha — só garantimos que está ligada.)
     private void ExecuteClear(RoutineContext ctx, Entity target)
     {
-        if (TryKillingPalm(ctx, target)) return; // só dispara se faltarem charges (ver dentro)
-        TryFiller(ctx);                            // Whirling Assault
+        if (TryKillingPalm(ctx, target)) return;     // só dispara se faltarem charges (ver dentro)
+        if (TryFallingThunder(ctx, target)) return;  // janela ótima: Charged Staff + charges cheias
+        TryFiller(ctx);                              // Whirling Assault
     }
 
     // ELITE (raro): como o clear, mas com Rend opcional para burst. Sem a abertura completa do boss
     // (Tempest Bell + Hollow Form) para não desperdiçar em alvos rápidos.
     private void ExecuteElite(RoutineContext ctx, Entity target)
     {
-        if (TryTempestBell(ctx, target)) return;   // sino amplifica também em raros difíceis
-        if (TryKillingPalm(ctx, target)) return;   // repõe cargas (sobretudo logo após o sino)
+        if (TryTempestBell(ctx, target)) return;     // sino amplifica também em raros difíceis
+        if (TryKillingPalm(ctx, target)) return;     // repõe cargas (sobretudo logo após o sino)
         if (UseRend && TryRend(ctx, target)) return;
+        if (TryFallingThunder(ctx, target)) return;  // janela ótima: Charged Staff + charges cheias
         TryFiller(ctx);
     }
 
@@ -180,7 +193,8 @@ public sealed class StaffRoutine : IRoutine
         // 3. Charged Staff — já garantido pela manutenção no topo do Execute.
         if (UseRend && TryRend(ctx, target)) return;        // 4. Rend (reaplica ao expirar)
         if (UseHollowForm && TryHollowForm(ctx)) return;    // 5. Hollow Form
-        TryFiller(ctx);                                     // 6. spam Whirling Assault
+        if (TryFallingThunder(ctx, target)) return;         // 6. Falling Thunder (janela ótima)
+        TryFiller(ctx);                                     // 7. spam Whirling Assault
     }
 
     // ── Manutenção (fundo) ──────────────────────────────────────────────────────────────────
@@ -258,6 +272,36 @@ public sealed class StaffRoutine : IRoutine
     }
 
     private int _palmChargesAtStart;
+
+    // Falling Thunder: nuke condicional. SÓ dispara na "janela ótima" pedida pelo utilizador —
+    // Charged Staff ATIVO **e** Power Charges CHEIAS (>= FallingThunderCharges, ex.: 5). Como provável
+    // gastador das charges, isto cria o ciclo: Killing Palm enche → ao chegar a 5 com CS ativo, Falling
+    // Thunder dispara → charges caem → Killing Palm reabastece.
+    //
+    // Requer leitura FIÁVEL das duas coisas: se o nome do buff do Charged Staff ou das Power Charges
+    // estiver errado (Has=false / Charges=-1), a janela nunca é reconhecida e o Falling Thunder não sai
+    // (em vez de spammar à toa). É o comportamento seguro até confirmares CHARGED_STAFF_BUFF / POWER_CHARGE.
+    private bool TryFallingThunder(RoutineContext ctx, Entity target)
+    {
+        if (!UseFallingThunder) return false;
+
+        var csActive = BuffReader.Has(ctx.Game?.Player, CHARGED_STAFF_BUFF);
+        var charges = BuffReader.Charges(ctx.Game?.Player, POWER_CHARGE);
+        ThunderDebug = $"thunder: cs={csActive} pc={charges}/{FallingThunderCharges} cd={_cd.Ready(FALLING_THUNDER, CD_FALLING_THUNDER)}";
+
+        // Janela ótima: precisa das DUAS condições com leitura fiável.
+        if (!csActive) return false;
+        if (charges < 0 || charges < FallingThunderCharges) return false;
+
+        if (!_cd.Ready(FALLING_THUNDER, CD_FALLING_THUNDER)) return false;
+        var s = ctx.Find(FALLING_THUNDER);
+        if (s == null || !s.IsReady) return false;
+        // SEGURA até confirmar o uso (ActorSkill) ou timeout — igual às outras.
+        BeginChannel(ctx, Channel.FallingThunder, s.Key.Value.Key, target.Id);
+        return true;
+    }
+
+    public string ThunderDebug { get; private set; } = "";
 
     // ── Burst de boss ───────────────────────────────────────────────────────────────────────
 
@@ -367,6 +411,15 @@ public sealed class StaffRoutine : IRoutine
                 var used = s != null && (s.IsUsing || s.IsOnCooldown);
                 var timeout = elapsed >= HOLLOW_FORM_COMMIT_MS;
                 if (applied || used || timeout) { EndChannel(ctx); _cd.Mark(HOLLOW_FORM); }
+                return;
+            }
+            case Channel.FallingThunder:
+            {
+                // Confirma pelo ActorSkill (em uso/cooldown = saiu) ou timeout.
+                var s = ctx.Find(FALLING_THUNDER);
+                var used = s != null && (s.IsUsing || s.IsOnCooldown);
+                var timeout = elapsed >= FALLING_THUNDER_COMMIT_MS;
+                if (used || timeout || targetGone) { EndChannel(ctx); _cd.Mark(FALLING_THUNDER); }
                 return;
             }
         }

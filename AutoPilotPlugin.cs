@@ -374,7 +374,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             case IceShotRoutine ice:
                 return $"{ice.ComboDebug}\n{ice.BarrageDebug}\n{ice.FillerDebug}";
             case StaffRoutine staff:
-                return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.FillerDebug}";
+                return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.ThunderDebug}\n{staff.FillerDebug}";
             default:
                 return "";
         }
@@ -393,6 +393,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _staff.UseRend = Settings.Staff.UseRend.Value;
         _staff.UseHollowForm = Settings.Staff.UseHollowForm.Value;
         _staff.TempestBellDurationMs = Settings.Staff.TempestBellDurationMs.Value;
+        _staff.UseFallingThunder = Settings.Staff.UseFallingThunder.Value;
+        _staff.FallingThunderCharges = Settings.Staff.FallingThunderCharges.Value;
     }
 
     /// <summary>
