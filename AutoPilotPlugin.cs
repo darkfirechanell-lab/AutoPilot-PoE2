@@ -108,16 +108,21 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             DebugWindow.LogMsg($"[AutoPilot] Preset Ice Shot aplicado a {n} skills. Liga 'Geral' no dropdown para usar.");
         };
 
-        // Botões de perfil: guardar/carregar a configuração da build com nome.
+        // Perfis: preenche o dropdown com os perfis já guardados.
+        RefreshProfileList();
         Settings.SaveProfile.OnPressed += () =>
         {
+            var name = Settings.ProfileName.Value;
             var data = BuildProfileFromSettings();
-            _profiles.Save(Settings.ProfileName.Value, data);
+            _profiles.Save(name, data);
+            RefreshProfileList();
+            Settings.ProfileList.Value = name; // seleciona o que acabou de guardar.
             DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
         };
         Settings.LoadProfile.OnPressed += () =>
         {
-            var data = _profiles.Load(Settings.ProfileName.Value);
+            var name = Settings.ProfileList.Value;
+            var data = _profiles.Load(name);
             if (data != null) ApplyProfileToSettings(data);
             DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
         };
@@ -495,6 +500,16 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     }
 
     // ── Perfis: settings ↔ ProfileData ─────────────────────────────────────────────────────
+
+    /// <summary>Atualiza o dropdown de perfis com os ficheiros existentes (mantém a seleção se possível).</summary>
+    private void RefreshProfileList()
+    {
+        var names = _profiles.ListProfiles();
+        var prev = Settings.ProfileList.Value;
+        Settings.ProfileList.Values = names;
+        if (names.Count > 0)
+            Settings.ProfileList.Value = names.Contains(prev) ? prev : names[0];
+    }
 
     /// <summary>Lê os settings atuais para um ProfileData (guardar).</summary>
     private Combat.General.ProfileData BuildProfileFromSettings()

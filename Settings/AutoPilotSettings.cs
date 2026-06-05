@@ -86,14 +86,17 @@ public class AutoPilotSettings : ISettings
     [Submenu]
     public StaffSettings Staff { get; set; } = new();
 
-    [Menu("Nome do perfil", "Nome para guardar/carregar a configuração desta build (regras de skills + settings).")]
+    [Menu("Perfil", "Escolhe um perfil guardado para carregar. (A lista atualiza ao guardar um novo.)")]
+    public ListNode ProfileList { get; set; } = new() { Values = new System.Collections.Generic.List<string>() };
+
+    [Menu("Carregar perfil", "Carrega o perfil escolhido em 'Perfil' (aplica as regras às skills por nome + settings).")]
+    public ButtonNode LoadProfile { get; set; } = new();
+
+    [Menu("Nome do novo perfil", "Nome para GUARDAR a configuração atual como um perfil novo (ou sobrescrever um existente).")]
     public TextNode ProfileName { get; set; } = new("Ice Shot");
 
-    [Menu("Guardar perfil", "Guarda a configuração atual (regras [Geral] de todas as skills + settings gerais) com o nome acima.")]
+    [Menu("Guardar perfil", "Guarda a configuração atual (regras [Geral] de todas as skills + settings gerais) com o 'Nome do novo perfil'.")]
     public ButtonNode SaveProfile { get; set; } = new();
-
-    [Menu("Carregar perfil", "Carrega a configuração do perfil com o nome acima (aplica as regras às skills por nome).")]
-    public ButtonNode LoadProfile { get; set; } = new();
 
     [Menu("Re-detetar Teclas", "Limpa e volta a atribuir automaticamente as teclas de todas as skills (usa se ficaram erradas).")]
     public ButtonNode RedetectKeys { get; set; } = new();

@@ -27,6 +27,21 @@ public sealed class ProfileManager
         try { Directory.CreateDirectory(Dir); } catch { }
     }
 
+    /// <summary>Lista os nomes dos perfis guardados (ficheiros .json na pasta de perfis).</summary>
+    public List<string> ListProfiles()
+    {
+        var names = new List<string>();
+        try
+        {
+            if (Directory.Exists(Dir))
+                foreach (var f in Directory.GetFiles(Dir, "*.json"))
+                    names.Add(Path.GetFileNameWithoutExtension(f));
+        }
+        catch { }
+        names.Sort();
+        return names;
+    }
+
     /// <summary>Caminho do ficheiro de um perfil (sanitiza o nome para nome de ficheiro válido).</summary>
     private static string PathFor(string name)
     {
