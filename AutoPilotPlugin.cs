@@ -96,13 +96,14 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             DebugWindow.LogMsg("[CombatRoutine] Teclas re-detetadas.");
         };
 
-        // HotkeyNodeV2 expõe a tecla via .Value (ao contrário do HotkeyNode antigo, já obsoleto).
-        ExileCore2.Input.RegisterKey(Settings.AimKey.Value);
-        ExileCore2.Input.RegisterKey(Settings.AimToggleKey.Value);
-        Settings.AimKey.OnValueChanged += () => ExileCore2.Input.RegisterKey(Settings.AimKey.Value);
+        // Aim Key/Toggle são HotkeyNode antigo (aceita botões do rato). RegisterKey recebe o nó inteiro
+        // e a tecla lê-se por .Value direto (Keys), ao contrário do V2 (.Value.Key). Padrão do AutoMyAim.
+        ExileCore2.Input.RegisterKey(Settings.AimKey);
+        ExileCore2.Input.RegisterKey(Settings.AimToggleKey);
+        Settings.AimKey.OnValueChanged += () => ExileCore2.Input.RegisterKey(Settings.AimKey);
         Settings.AimToggleKey.OnValueChanged += () =>
         {
-            ExileCore2.Input.RegisterKey(Settings.AimToggleKey.Value);
+            ExileCore2.Input.RegisterKey(Settings.AimToggleKey);
             _aimToggled = false;
         };
 
@@ -158,7 +159,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Proximal Tangibility: alcance a partir do qual o mob com esse mod passa a ser mirável.
         Detection.EntityCache.ProximalTangibilityRange = Settings.ProximalRange.Value;
 
-        var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value.Key);
+        var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value);
         if (!aimActive)
         {
             // Aim desligado: deixa fechar canal a meio, depois para.
@@ -302,7 +303,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             if (GameController is not { InGame: true, Player: not null }) return;
 
             // Só desenha quando o aim está ativo (evita poluir o ecrã quando não estás a combater).
-            var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value.Key);
+            var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value);
             if (!aimActive && !Settings.ShowDebug.Value) return;
 
             string dbg = null;

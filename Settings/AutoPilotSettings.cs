@@ -14,11 +14,16 @@ public class AutoPilotSettings : ISettings
 {
     public ToggleNode Enable { get; set; } = new(false);
 
-    [Menu("Aim Key", "Tecla a manter premida para ativar o aim/combate.")]
-    public HotkeyNodeV2 AimKey { get; set; } = new(Keys.None);
+    // Aim Key/Toggle usam o HotkeyNode ANTIGO (não o V2) DE PROPÓSITO: o widget do V2 bloqueia os
+    // botões do rato (LB/RB) na atribuição manual; o HotkeyNode antigo aceita-os, como o AutoMyAim.
+    // (As teclas das skills continuam HotkeyNodeV2 + auto-deteção, que já apanha o rato da memória.)
+#pragma warning disable CS0618 // HotkeyNode está obsoleto mas é o único que aceita botões do rato no picker.
+    [Menu("Aim Key", "Tecla a manter premida para ativar o aim/combate. Aceita botões do rato (LB/RB/MB).")]
+    public HotkeyNode AimKey { get; set; } = new(Keys.None);
 
-    [Menu("Aim Toggle Key", "Tecla que liga/desliga o aim em modo toggle.")]
-    public HotkeyNodeV2 AimToggleKey { get; set; } = new(Keys.None);
+    [Menu("Aim Toggle Key", "Tecla que liga/desliga o aim em modo toggle. Aceita botões do rato.")]
+    public HotkeyNode AimToggleKey { get; set; } = new(Keys.None);
+#pragma warning restore CS0618
 
     [Menu("Mostrar Debug", "Mostra no ecrã o modo de combate, alvo, animação e buffs do alvo (para afinar timings).")]
     public ToggleNode ShowDebug { get; set; } = new(false);
@@ -49,12 +54,19 @@ public class AutoPilotSettings : ISettings
         Value = "Ice Shot",
     };
 
+    // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown acima.
+    // (ConditionalDisplay do ExileCore2 — mesmo padrão do AutoMyAim.)
+    public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
+    public bool IsStaffRoutine() => Routine?.Value == "Staff";
+
     [Submenu]
     public CombatSettings Combat { get; set; } = new();
 
+    [ConditionalDisplay(nameof(IsIceShotRoutine))]
     [Submenu]
     public IceShotSettings IceShot { get; set; } = new();
 
+    [ConditionalDisplay(nameof(IsStaffRoutine))]
     [Submenu]
     public StaffSettings Staff { get; set; } = new();
 

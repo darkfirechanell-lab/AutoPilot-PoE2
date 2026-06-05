@@ -1,95 +1,140 @@
-# Routine Geral Configurável — Plano
+# Plano Mestre de Melhorias do AutoPilot (v2 — pós-auditoria)
 
-Objetivo: substituir a rotação fixa de gelo (`IceShotRoutine`) por um **motor genérico** que
-funciona para **qualquer build**. O utilizador configura tudo pela UI (menus simples, sem escrever
-código). A build de gelo atual passa a ser **um preset de exemplo**, não código fixo.
+> Baseado na investigação do AutoMyAim + ExiledBot 2 v0.9.4d (ver memórias
+> `exiledbot-combat-model-reference`, `autopilot-must-be-build-agnostic`).
+> **v2: reescrito após auditoria crítica.** Correções aplicadas: (1) modelo de dados PRIMEIRO,
+> (2) critério de equivalência por baseline de logs, (3) encadeamento temporal entre skills no modelo,
+> (4) Kiting diferido para fora do caminho crítico.
+> **NÃO COMEÇAR a construir até o utilizador aprovar.** Cada fase: isolada, compila 0 erros, commit
+> próprio, e o UTILIZADOR TESTA antes da seguinte (protocolo a pente fino). Tudo opt-in: o IceShot e o
+> combate atual continuam a funcionar durante TODA a construção.
 
----
-
-## 1. Modelo de dados — o que cada skill ganha na UI
-
-Cada `SkillSlot` (já tem Tecla / Prioridade / Tap Hold ms) ganha um submenu **"Regras de Uso"**:
-
-### Modo de uso
-- **Tipo:** `Tap` | `Hold até condição` (dropdown)
-  - Tap = um toque (ex.: Ice Shot, Barrage).
-  - Hold até condição = segura a tecla até a condição de confirmação acontecer (ex.: Mark até ao
-    debuff, Salvo até os seals baixarem, Snipe até ao stage de release).
-- **Cooldown interno (ms):** anti-spam por skill (já existe como conceito; passa a ser por skill).
-
-### Quando usar (condições) — TODAS têm de ser verdadeiras (AND)
-Cada condição é uma linha opcional com um dropdown + campo. Default = "ignorar" (não filtra).
-
-1. **Raridade do alvo:** `Qualquer` | `Normal+` | `Magic+` | `Rare+` | `Só Unique/Boss`
-   (dropdown — ex.: Barrage só em Rare+).
-2. **Alvo TEM buff/debuff:** caixa de texto com nome interno (ex.: `frozen`). Vazio = ignora.
-3. **Alvo NÃO tem buff/debuff:** caixa de texto (ex.: `freezing_mark` → só marca se não marcado).
-4. **Player TEM buff:** caixa de texto (ex.: ignora se já tens o buff).
-5. **Player NÃO tem buff:** caixa de texto (ex.: Ice-Tipped só se não tens `shearing_bolts`).
-6. **Charges do player >= N:** nome do buff + N (ex.: `skill_seals` >= 10 para o Salvo).
-7. **HP do alvo:** `< X%` | `> X%` | ignorar (ex.: culling só com HP < 10%).
-8. **Distância ao alvo:** `< X` | `> X` | ignorar.
-
-### Confirmação do "hold até condição" (quando Tipo = Hold)
-Dropdown **"Soltar quando":**
-- `Buff aparece no alvo` (+ nome) — ex.: Mark.
-- `Buff aparece no player` (+ nome) — ex.: Ice-Tipped.
-- `Charges do player baixam` (+ nome) — ex.: Salvo (seals consumidos).
-- `Skill em uso/cooldown (ActorSkill)` — ex.: Tornado.
-- `Stage de animação >= N` (+ N) — ex.: Snipe stage 21.
-- `Timeout (ms)` — rede de segurança, sempre presente.
+O AutoPilot tem de servir QUALQUER build (requisito firme). Tudo é agnóstico à build, exceto o preset
+de gelo (que é só uma configuração de exemplo).
 
 ---
 
-## 2. O motor (genérico, agnóstico à build)
+## PRINCÍPIO CENTRAL DA AUDITORIA: o MODELO DE DADOS é a fundação
 
-`GeneralRoutine : IRoutine` substitui o switch de raridade fixo:
+A Routine Geral NÃO é "mais um bloco" — é a **substituição do núcleo** de combate. Logo, o modelo de
+skill enriquecido vem **PRIMEIRO**, e tudo o resto (shift-ao-atacar, raridade-alvo, condições) passa a
+ser **campos desse modelo**, não código solto. Construir features no `IceShotRoutine` antigo seria
+escrevê-las duas vezes (retrabalho garantido). Por isso a ordem foi invertida.
 
-```
-Execute(ctx):
-  se está em hold ativo → continua o hold (solta quando a condição de confirmação acontece) → return
-  ordena as skills ativas por Prioridade (maior primeiro)
-  para cada skill, por ordem:
-    se passa TODAS as condições (raridade, buffs, charges, hp, dist, cooldown, CanHit p/ dano):
-      se Tipo=Tap → tap, marca cooldown, return
-      se Tipo=Hold → começa o hold, return
-  (nenhuma disparou → não faz nada este tick)
-```
-
-- **Uma máquina de hold partilhada** (como a atual), mas a condição de soltar vem da config da skill,
-  não de código fixo por skill.
-- **C1 (cursor no alvo)** aplica-se às skills marcadas como "dano" (flag por skill, ou às que têm
-  condição de alvo). Mantém o que já temos.
+### Impedance mismatch a ter em conta (ExiledBot vs AutoPilot)
+O ExiledBot **move-se na grid**; o AutoPilot **mira um cursor no ecrã**. Parâmetros do skills.ini que
+assumem movimento (is_movement, kiting na grid) não transferem direto. O modelo do AutoPilot reusa as
+CONDIÇÕES (raridade, buffs, cargas, recursos, distância) mas a ação é sempre "tap/hold de tecla +
+cursor no alvo", não "andar para".
 
 ---
 
-## 3. Como a build de gelo vira PRESET
+## FASE 0 — Quick wins triviais (commit único, sem fase própria)
 
-Um botão **"Carregar preset: Ice Shot (Deadeye gelo)"** preenche os SkillSlots com as regras atuais:
-- Ice Shot: Tap, prioridade baixa (filler), sem condições.
-- Barrage: Tap, prioridade alta, alvo Rare+, alvo TEM `frozen`, cooldown 2000.
-- Snipe: Hold até stage 21, alvo Rare+, alvo TEM `frozen`, depois do Barrage (commit ms).
-- Mark: Hold até `freezing_mark` no alvo, alvo NÃO tem `freezing_mark`; fora do boss player NÃO tem
-  `freezing_mark_damage_buff`.
-- Ice-Tipped: Hold até `shearing_bolts` no player; player NÃO tem `shearing_bolts`.
-- Salvo: Hold até `skill_seals` baixar; player charges `skill_seals` >= 10.
-- Tornado: Hold até ActorSkill confirmar; cooldown (boss vs normal).
-
-Assim provamos que o motor genérico consegue exprimir a rotação real testada — sem perder nada.
+Não merecem sub-projeto; são edições pontuais no arranque:
+- **Expandir filtro de imunidade** (`EntityCache.InvulnBuffFragments`): juntar `divine_shrine`,
+  `cannot_be_damaged_by_things_outside_radius`, `cannot_be_damaged_for_`, `cannot_be_damaged_by_enemies`.
+  CUIDADO: validar cada um como fizemos com o Proximal (alguns são condicionais/temporários — não
+  filtrar para sempre se for só temporário). É adicionar strings a um array existente.
+- Teste: combate normal não muda; mobs com esses mods deixam de desperdiçar tiros.
 
 ---
 
-## 4. Construção POR PARTES (cada uma testada como A/B/C)
+## FASE 1 — MODELO DE DADOS (a fundação) [tem de vir antes de tudo]
 
-- **P1 — Modelo de condições:** classe `SkillRule` + avaliador `Evaluate(ctx, slot)` (raridade, tem/não
-  tem buff, charges, hp, dist, cooldown). SEM UI ainda; testado com valores fixos = igual ao IceShot.
-- **P2 — Motor genérico:** `GeneralRoutine` que ordena por prioridade e usa o avaliador. Corre LADO A
-  LADO com o IceShot (toggle "usar motor geral"), para comparar sem partir o que funciona.
-- **P3 — Hold configurável:** a máquina de hold lê a condição de soltar da config.
-- **P4 — UI:** expor as regras no menu de cada skill (dropdowns/checkboxes/caixas de texto).
-- **P5 — Preset de gelo:** botão que preenche tudo; validar que o motor geral == IceShot no jogo.
-- **P6 — Aposentar o IceShot:** quando o motor geral provar ser igual ou melhor, o IceShot fica só
-  como referência/preset.
+Enriquecer o `SkillSlot` com TODAS as regras, e um avaliador puro. SEM mudar a rotação ativa ainda —
+o `IceShotRoutine` continua a correr. Esta fase só ADICIONA o modelo e prova que ele consegue
+EXPRIMIR a rotação de gelo, sem a substituir.
 
-Em cada parte: reler letra a letra, compilar 0 erros, commit isolado, utilizador testa, só depois a
-seguinte. O IceShot **continua a funcionar** durante toda a construção (motor geral é opt-in até P6).
+**1.1 — Classe de regras (`SkillRule` / campos no `SkillSlot`):**
+- Tipo: `Tap` | `Hold até condição` | `Buff` (sem checks de alvo) | `Persistente`.
+- Prioridade (maior = primeiro) + Cooldown próprio (ms).
+- **`AttackInPlace` (bool)** ← o shift-ao-atacar vira um CAMPO da skill, não um bloco separado.
+- Alcance: min/max distância ao alvo. **Flag `IgnoreRangeForUnique`** (bosses sempre alvo).
+- Raridade do alvo: Todos | Magic+ | Rare+ | Só Unique | Só Normal.
+- Cargas: min/max de power/frenzy/endurance.
+- Recursos do player: min/max vida% / mana% / ES% (defaults que não filtram).
+- Alvo TEM / NÃO TEM buff (nome) ; Player TEM / NÃO TEM buff (nome) ; Charges de buff X >= N.
+- HP do alvo < / > X% (culling).
+- `close_targets` (N) + `close_targets_range` (AoE/packs).
+- **Encadeamento temporal (CRÍTICO — corrige a falsa equivalência do anti-corte):**
+  `AfterSkill` (nome) + `AfterSkillDelayMs` = "só dispara N ms DEPOIS de a skill X ter saído".
+  Isto modela o combo Barrage→Snipe corretamente (o Snipe entra DURANTE a janela de empower, não
+  "depois da animação acabar" como o ExiledBot). O `BarrageCommitMs` é um caso deste mecanismo.
+- Confirmação do hold (soltar quando): buff aparece (alvo/player) | charges baixam | skill em
+  uso/cooldown (ActorSkill) | stage de animação >= N | timeout.
+
+**1.2 — Avaliador puro `Evaluate(ctx, slot) -> bool`** (todas as condições em AND). Função sem efeitos
+colaterais, testável isoladamente.
+
+**Teste da Fase 1:** com o IceShot ainda ativo, log paralelo "o que o avaliador DECIDIRIA" para cada
+skill, e confirmar que bate com o que o IceShot faz. Zero mudança de comportamento (o avaliador só
+observa, não age).
+
+---
+
+## FASE 2 — BASELINE DE EQUIVALÊNCIA (o critério de aceitação) [antes do motor]
+
+A auditoria apontou que "validar que o motor == IceShot" é subjetivo. Definir o critério **agora**,
+ANTES de construir o motor:
+
+- Gravar o `AutoPilot_actions.txt` do **IceShot atual** em 3 cenários fixos: (a) pack de lixo,
+  (b) Rare que congela, (c) Boss/Unique. Guardar como **baseline** (ficheiro à parte).
+- **Critério binário:** o motor geral PASSA se produzir a **mesma sequência de teclas, na mesma ordem,
+  dentro de ±1 tick** nos mesmos cenários. Não é "parece igual" — é a sequência de TAP/HOLD/RELEASE a
+  bater com o baseline.
+- Isto usa os logs que JÁ existem (ActionLog). Sem infra nova.
+
+---
+
+## FASE 3 — MOTOR GENÉRICO (`GeneralRoutine : IRoutine`) [o principal]
+
+Agora sim, o motor. Corre LADO A LADO com IceShot/Staff (o dropdown "Rotina de combate" já existe —
+adicionar a opção "Geral"). O IceShot **não se toca**.
+
+**3.1 — `GeneralRoutine`:** ordena as skills ativas por prioridade, e para cada uma chama o avaliador
+da Fase 1. Tap/Hold conforme o tipo. Anti-corte = prioridades distintas + cooldown + o **encadeamento
+temporal** (`AfterSkill`/`AfterSkillDelayMs`) da Fase 1.
+**3.2 — Máquina de hold** lê a condição de soltar da config (reusa a máquina de canal atual).
+**3.3 — Shift-ao-atacar** consumido do campo `AttackInPlace` (já no modelo da Fase 1).
+**3.4 — UI:** expor as regras no menu de cada skill (ConditionalDisplay já em uso).
+
+**Teste de cada sub-fase:** correr o motor nos 3 cenários e comparar com o **baseline da Fase 2**.
+Passa = sequência igual ±1 tick. Falha = ver onde divergiu (o log diz).
+
+---
+
+## FASE 4 — PRESET DE GELO + APOSENTAR IceShot [fecho do projeto]
+
+- **4.1 Preset "Ice Shot (Deadeye gelo)":** botão que preenche os SkillSlots com as regras do gelo
+  (incluindo o encadeamento Barrage→Snipe via AfterSkill/AfterSkillDelayMs).
+- **4.2 Validação final:** o motor com o preset tem de PASSAR o baseline da Fase 2 nos 3 cenários.
+  Critério binário, não subjetivo. Se passa → o motor geral exprime a rotação real testada.
+- **4.3** O IceShotRoutine fica como referência/preset; o motor geral passa a ser o caminho recomendado.
+  (Não apagar o IceShot enquanto o motor não estiver provado em jogo pelo utilizador.)
+
+---
+
+## DIFERIDO — Kiting / Wiggle (sobrevivência) [FORA do caminho crítico]
+
+A auditoria recomendou tirar isto do âmbito atual: mexe em MOVIMENTO (o mais arriscado), conflitua com
+o controlo manual do utilizador, e **não bloqueia nada do resto**. Fica documentado para DEPOIS de o
+motor geral estar provado. Quando se fizer: tudo desligado por defeito, só age com aim ativo, fases
+mínimas (dodge roll de emergência → escape → wiggle → adaptive/boss-circling/dodge-reativo). Modelo do
+ExiledBot [kiting] como referência.
+
+---
+
+## ORDEM FINAL (corrigida pela auditoria)
+
+0. Quick wins (filtros de imunidade) — commit trivial.
+1. **MODELO DE DADOS** + avaliador — a fundação (shift e condições viram campos aqui).
+2. **BASELINE de equivalência** — gravar os logs do IceShot como critério binário.
+3. **MOTOR genérico** — validado contra o baseline a cada sub-fase.
+4. **PRESET de gelo** + validação final + aposentar IceShot.
+— (diferido) Kiting/Wiggle, só depois do motor provado.
+
+**Porque esta ordem:** o modelo primeiro elimina o retrabalho (shift e targeting são campos, não
+sub-projetos); o baseline torna o "está igual?" falsificável; o encadeamento temporal no modelo evita
+partir o combo de gelo; o Kiting diferido encurta o caminho crítico. Nada se parte sem o utilizador
+ver e testar.
