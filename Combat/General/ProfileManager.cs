@@ -18,7 +18,7 @@ namespace AutoPilot.Combat.General;
 public sealed class ProfileManager
 {
     private static readonly string Dir =
-        Path.Combine(@"C:\Users\clona\Desktop\GamePoe\TestePoE", "AutoPilot_Profiles");
+        Path.Combine(@"C:\Users\clona\Desktop\GamePoe\TestePoE", "config", "AutoPilot_Profiles");
 
     public string LastMessage { get; private set; } = "";
 
