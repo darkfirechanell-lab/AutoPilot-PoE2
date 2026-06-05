@@ -33,7 +33,10 @@ public class AutoPilotSettings : ISettings
     public GeneralSettings Geral { get; set; } = new();
 
     // ── Submenu PERFIL (a seguir ao Geral) — conteúdo desenhado em ImGui custom (estilo PickIt) ──
-    [Submenu(CollapsedByDefault = true)]
+    // Segue EXATAMENTE o padrão do PickIt FilterNode: [JsonIgnore] na propriedade, e o [Submenu(
+    // RenderMethod)] APENAS na classe. Misturar CollapsedByDefault aqui fazia o submenu não aparecer.
+    [Menu("Perfil")]
+    [JsonIgnore]
     public ProfileSettings Perfil { get; set; } = new();
 
     // Atalhos para o resto do código continuar a aceder aos campos (movidos para os submenus).
@@ -85,7 +88,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ButtonNode RedetectKeys => SkillsSection.RedetectKeys;
 }
 
-[Submenu(CollapsedByDefault = true, RenderMethod = nameof(Render))]
+[Submenu(RenderMethod = nameof(Render))]
 public class ProfileSettings
 {
     // O conteúdo deste submenu é desenhado em ImGui custom (estilo PickIt): lista de perfis com
