@@ -460,6 +460,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _staff.TempestBellDurationMs = Settings.Staff.TempestBellDurationMs.Value;
         _staff.UseFallingThunder = Settings.Staff.UseFallingThunder.Value;
         _staff.FallingThunderCharges = Settings.Staff.FallingThunderCharges.Value;
+
+        // Fase 3.4: o motor Geral usa as regras da UI (se ligado) ou o preset de gelo embutido.
+        var rules = Settings.GeneralUseUiRules.Value
+            ? Combat.General.SkillRuleMapper.FromSlots(Settings.Skills.Content)
+            : Combat.General.IceShotPreset.Build();
+        _general.SetRules(rules);
     }
 
     /// <summary>

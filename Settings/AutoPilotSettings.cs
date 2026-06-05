@@ -52,12 +52,16 @@ public class AutoPilotSettings : ISettings
     public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);
 
     [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
-        "build de cajado; 'Geral' = motor configurável (Fase 3, EM TESTES — usa o preset de gelo por agora).")]
+        "build de cajado; 'Geral' = motor configurável pela UI (regras por skill em 'Skills detetadas').")]
     public ListNode Routine { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
         Value = "Ice Shot",
     };
+
+    [Menu("[Geral] Usar regras da UI", "LIGADO: o motor Geral usa as regras '[Geral]' que configuras em cada skill. " +
+        "DESLIGADO: usa o preset de gelo embutido (Ice Shot/Snipe/Barrage/Mark/Salvo/Tornado já configurado).")]
+    public ToggleNode GeneralUseUiRules { get; set; } = new(false);
 
     // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown acima.
     // (ConditionalDisplay do ExileCore2 — mesmo padrão do AutoMyAim.)
