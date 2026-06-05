@@ -119,12 +119,18 @@ public sealed class EntityCache
         "Metadata/Monsters/VaalConstructs/Cycloning/VaalCycloneConstructArmsSpawned",
     };
 
-    // Buffs/debuffs que tornam um alvo imune — bosses que clonam (ex.: o que triplica) deixam
-    // os clones invulneráveis assim. Sem isto, o aim desperdiçava-se nos clones em vez do boss
-    // real que dá para matar. Cobrimos várias variantes de nome porque o jogo não é consistente.
+    // Buffs/debuffs que tornam um alvo imune A TUDO (não elemental) — bosses que clonam, Divine Shrine,
+    // etc. Sem isto o aim desperdiçava-se neles. Usamos Contains, por isso "cannot_be_damaged" já
+    // apanha as variantes cannot_be_damaged_by_things_outside_radius / _for_ / _by_enemies (Fase 0).
+    //
+    // CUIDADO (validado a pente fino): NÃO incluir fragmentos de imunidade ELEMENTAL (base_fire_immunity,
+    // base_cold_immunity, etc.) — um mob imune a fogo não é imune a gelo; filtrá-lo seria errado e
+    // depende da build. O "immune" genérico fica porque cobre invulnerabilidade total; os elementais
+    // específicos serão tratados (se preciso) por filtros de elemento na Routine Geral, não aqui.
     private static readonly string[] InvulnBuffFragments =
     {
         "invulnerable", "cannot_die", "cannot_be_damaged", "immune", "damage_immunity", "untargetable",
+        "divine_shrine", // Divine Shrine: imunidade total temporária enquanto o buff está ativo.
     };
 
     /// <summary>
