@@ -24,6 +24,16 @@ public sealed class InputQueue : IDisposable
     /// <summary>Gap mínimo (ms) entre o KeyDown e o KeyUp de um tap, para o jogo o registar.</summary>
     public const int DefaultTapHoldMs = 12;
 
+    /// <summary>
+    /// REDE DE SEGURANÇA ANTI-KICK: gap mínimo (ms) entre QUALQUER duas ações de input (tap/hold),
+    /// independentemente da config. O servidor expulsa por "too many actions too fast" acima de ~20-30
+    /// ações/seg; 60ms = no máximo ~16/seg, bem dentro do seguro. NENHUMA routine/config pode furar isto.
+    /// (Equivalente ao AI_clicks_per_second do ExiledBot.) Se uma skill quer disparar antes do gap, é
+    /// SILENCIOSAMENTE saltada nesse tick — tenta no próximo. Configurável via MinGapMs.
+    /// </summary>
+    public int MinGapMs { get; set; } = 60;
+    private long _lastActionTicks;
+
     // Taps pendentes de libertação: tecla → instante (UTC ticks) em que o KeyUp deve ocorrer.
     private readonly Dictionary<Keys, long> _pendingTapRelease = new();
 
@@ -46,14 +56,26 @@ public sealed class InputQueue : IDisposable
     {
         if (_disposed || key == Keys.None) return;
 
+        // REDE DE SEGURANÇA: se a última ação foi há menos de MinGapMs, SALTA este tap (evita o kick
+        // "too many actions too fast"). A skill tenta de novo no próximo tick.
+        if (!GapElapsed()) return;
+
         // Se esta tecla está presa como hold, termina o hold — o tap é uma intenção diferente.
         if (_heldKey == key) ReleaseHold();
 
-        // Tap igual ao AutoMyAim: KeyDown, pequeno gap para o jogo registar, KeyUp. Sem rate-limiter
-        // global (o AutoMyAim não tem — o anti-spam é por cooldown de cada skill na routine).
+        // Tap atómico: KeyDown, pequeno gap para o jogo registar, KeyUp.
         ExileCore2.Input.KeyDown(key);
         System.Threading.Thread.Sleep(5);
         ExileCore2.Input.KeyUp(key);
+        _lastActionTicks = DateTime.UtcNow.Ticks;
+    }
+
+    /// <summary>True se já passou o MinGapMs desde a última ação (rede de segurança anti-kick).</summary>
+    private bool GapElapsed()
+    {
+        if (MinGapMs <= 0) return true;
+        var elapsed = (DateTime.UtcNow.Ticks - _lastActionTicks) / TimeSpan.TicksPerMillisecond;
+        return elapsed >= MinGapMs;
     }
 
     /// <summary>
@@ -65,6 +87,9 @@ public sealed class InputQueue : IDisposable
         if (_disposed || key == Keys.None) return;
         if (_heldKey == key) return; // já está em hold, nada a fazer (continuar não é input novo)
 
+        // REDE DE SEGURANÇA: o ARRANQUE de um hold é uma ação nova — respeita o gap mínimo anti-kick.
+        if (!GapElapsed()) return;
+
         if (_heldKey != Keys.None) ReleaseHold();
 
         // Se a tecla tinha um tap pendente, cancela-o — o hold assume o controlo da tecla.
@@ -72,6 +97,7 @@ public sealed class InputQueue : IDisposable
 
         ExileCore2.Input.KeyDown(key);
         _heldKey = key;
+        _lastActionTicks = DateTime.UtcNow.Ticks;
     }
 
     /// <summary>Liberta a tecla em hold (se houver). Seguro chamar sem nada em hold.</summary>
