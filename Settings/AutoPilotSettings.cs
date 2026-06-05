@@ -27,11 +27,13 @@ public class AutoPilotSettings : ISettings
 #pragma warning restore CS0618
 
     // ── Submenu GERAL (no topo) ───────────────────────────────────────────────────────────
-    [Submenu]
+    // CollapsedByDefault TEM de estar AQUI (na propriedade), não só na classe — o ExileCore lê o
+    // [Submenu] da propriedade onde o menu é montado. Sem isto vinham todos abertos a cada arranque.
+    [Submenu(CollapsedByDefault = true)]
     public GeneralSettings Geral { get; set; } = new();
 
     // ── Submenu PERFIL (a seguir ao Geral) ────────────────────────────────────────────────
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public ProfileSettings Perfil { get; set; } = new();
 
     // Atalhos para o resto do código continuar a aceder aos campos (movidos para os submenus).
@@ -64,23 +66,23 @@ public class AutoPilotSettings : ISettings
     public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
     public bool IsStaffRoutine() => Routine?.Value == "Staff";
 
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public KitingSettings Kiting { get; set; } = new();
 
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public CombatSettings Combat { get; set; } = new();
 
     [ConditionalDisplay(nameof(IsIceShotRoutine))]
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public IceShotSettings IceShot { get; set; } = new();
 
     [ConditionalDisplay(nameof(IsStaffRoutine))]
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public StaffSettings Staff { get; set; } = new();
 
     // ── Submenu SKILLS (com o botão Re-detetar Teclas lá dentro) ──────────────────────────
     [Menu("Skills")]
-    [Submenu]
+    [Submenu(CollapsedByDefault = true)]
     public SkillsSettings SkillsSection { get; set; } = new();
 
     // Atalhos (escondidos do menu): o resto do código usa Settings.Skills.Content / RedetectKeys.
