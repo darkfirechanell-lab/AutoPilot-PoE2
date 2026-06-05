@@ -20,11 +20,37 @@ public sealed class ProfileManager
     private static readonly string Dir =
         Path.Combine(@"C:\Users\clona\Desktop\GamePoe\TestePoE", "config", "AutoPilot_Profiles");
 
+    /// <summary>Pasta onde os perfis (.json) vivem. Usada pelo botão "Abrir pasta" da UI.</summary>
+    public string Folder => Dir;
+
     public string LastMessage { get; private set; } = "";
 
     public ProfileManager()
     {
         try { Directory.CreateDirectory(Dir); } catch { }
+    }
+
+    /// <summary>True se já existe um perfil com este nome.</summary>
+    public bool Exists(string name)
+    {
+        try { return File.Exists(PathFor(name)); } catch { return false; }
+    }
+
+    /// <summary>Apaga o ficheiro de um perfil. Devolve true em sucesso.</summary>
+    public bool Delete(string name)
+    {
+        try
+        {
+            var path = PathFor(name);
+            if (File.Exists(path)) File.Delete(path);
+            LastMessage = $"Perfil '{name}' apagado.";
+            return true;
+        }
+        catch (Exception e)
+        {
+            LastMessage = $"Erro a apagar '{name}': {e.Message}";
+            return false;
+        }
     }
 
     /// <summary>Lista os nomes dos perfis guardados (ficheiros .json na pasta de perfis).</summary>

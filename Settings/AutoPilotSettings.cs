@@ -32,7 +32,7 @@ public class AutoPilotSettings : ISettings
     [Submenu(CollapsedByDefault = true)]
     public GeneralSettings Geral { get; set; } = new();
 
-    // ── Submenu PERFIL (a seguir ao Geral) ────────────────────────────────────────────────
+    // ── Submenu PERFIL (a seguir ao Geral) — conteúdo desenhado em ImGui custom (estilo PickIt) ──
     [Submenu(CollapsedByDefault = true)]
     public ProfileSettings Perfil { get; set; } = new();
 
@@ -56,11 +56,6 @@ public class AutoPilotSettings : ISettings
 #pragma warning restore CS0618
     [IgnoreMenu, JsonIgnore] public ToggleNode AutoDumpMods => Geral.AutoDumpMods;
 
-    // Atalhos dos perfis.
-    [IgnoreMenu, JsonIgnore] public ListNode ProfileList => Perfil.ProfileList;
-    [IgnoreMenu, JsonIgnore] public ButtonNode LoadProfile => Perfil.LoadProfile;
-    [IgnoreMenu, JsonIgnore] public TextNode ProfileName => Perfil.ProfileName;
-    [IgnoreMenu, JsonIgnore] public ButtonNode SaveProfile => Perfil.SaveProfile;
 
     // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown.
     public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
@@ -90,20 +85,12 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ButtonNode RedetectKeys => SkillsSection.RedetectKeys;
 }
 
-[Submenu(CollapsedByDefault = true)]
+[Submenu(CollapsedByDefault = true, RenderMethod = nameof(Render))]
 public class ProfileSettings
 {
-    [Menu("Perfil", "Escolhe um perfil guardado para carregar. (A lista atualiza ao guardar um novo.)")]
-    public ListNode ProfileList { get; set; } = new() { Values = new System.Collections.Generic.List<string>() };
-
-    [Menu("Carregar perfil", "Carrega o perfil escolhido em 'Perfil' (aplica as regras às skills por nome + settings).")]
-    public ButtonNode LoadProfile { get; set; } = new();
-
-    [Menu("Nome do novo perfil", "Nome para GUARDAR a configuração atual como um perfil novo (ou sobrescrever um existente).")]
-    public TextNode ProfileName { get; set; } = new("Ice Shot");
-
-    [Menu("Guardar perfil", "Guarda a configuração atual (regras [Geral] de todas as skills + settings gerais) com o 'Nome do novo perfil'.")]
-    public ButtonNode SaveProfile { get; set; } = new();
+    // O conteúdo deste submenu é desenhado em ImGui custom (estilo PickIt): lista de perfis com
+    // Carregar/Apagar, Guardar atual, Abrir pasta. Ver AutoPilotPlugin.DrawProfilePanel.
+    public void Render() => AutoPilotPlugin.Main?.DrawProfilePanel();
 }
 
 [Submenu(CollapsedByDefault = true)]

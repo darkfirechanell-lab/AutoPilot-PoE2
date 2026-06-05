@@ -23,6 +23,9 @@ namespace AutoPilot;
 /// </summary>
 public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 {
+    /// <summary>Referência à instância viva, para a UI custom dos perfis (padrão do PickIt).</summary>
+    public static AutoPilotPlugin Main { get; private set; }
+
     private InputQueue _inputQueue;
     private SkillExecutor _skills;
     private EntityCache _entities;
@@ -63,6 +66,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
     public override bool Initialise()
     {
+        Main = this; // referência estática para a UI custom dos perfis.
         _inputQueue = new InputQueue();
         _skills = new SkillExecutor(_inputQueue);
         _entities = new EntityCache(GameController);
@@ -135,24 +139,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             DebugWindow.LogMsg($"[AutoPilot] {Combat.ModDumper.LastMessage}");
         };
 
-        // Perfis: preenche o dropdown com os perfis já guardados.
-        RefreshProfileList();
-        Settings.SaveProfile.OnPressed += () =>
-        {
-            var name = Settings.ProfileName.Value;
-            var data = BuildProfileFromSettings();
-            _profiles.Save(name, data);
-            RefreshProfileList();
-            Settings.ProfileList.Value = name; // seleciona o que acabou de guardar.
-            DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
-        };
-        Settings.LoadProfile.OnPressed += () =>
-        {
-            var name = Settings.ProfileList.Value;
-            var data = _profiles.Load(name);
-            if (data != null) ApplyProfileToSettings(data);
-            DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
-        };
+        // Perfis: o painel é desenhado em ImGui custom (ver DrawProfilePanel / submenu Perfil).
+        // Não há botões/dropdown a ligar aqui — a lista é auto-descoberta da pasta a cada frame.
 
         // Botão "Re-detetar Teclas": limpa as teclas todas e re-atribui (corrige teclas erradas).
         Settings.RedetectKeys.OnPressed += () =>
@@ -542,17 +530,92 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         }
     }
 
-    // ── Perfis: settings ↔ ProfileData ─────────────────────────────────────────────────────
+    // ── Perfis: painel ImGui custom (estilo PickIt) ────────────────────────────────────────
 
-    /// <summary>Atualiza o dropdown de perfis com os ficheiros existentes (mantém a seleção se possível).</summary>
-    private void RefreshProfileList()
+    private string _profileSaveName = "Ice Shot";  // nome no campo "guardar como"
+    private string _profileToDelete;               // perfil a confirmar apagar (popup)
+
+    /// <summary>
+    /// Desenha o painel de perfis em ImGui direto (chamado pelo Render do submenu Perfil). Estilo
+    /// PickIt: auto-descobre os .json da pasta, 1 clique para carregar, x para apagar (com confirmação),
+    /// abrir pasta para backup/edição. Muito mais prático que o dropdown+texto antigo.
+    /// </summary>
+    public void DrawProfilePanel()
     {
+        // Linha de ações: abrir pasta + recarregar lista do disco.
+        if (ImGuiNET.ImGui.Button("Abrir pasta de perfis"))
+        {
+            try { System.Diagnostics.Process.Start("explorer.exe", _profiles.Folder); } catch { }
+        }
+        ImGuiNET.ImGui.SameLine();
+        if (ImGuiNET.ImGui.Button("Recarregar"))
+            DebugWindow.LogMsg($"[AutoPilot] {_profiles.ListProfiles().Count} perfis na pasta.");
+
+        ImGuiNET.ImGui.Separator();
+
+        // Guardar a configuração atual como um perfil (escreve o nome + botão).
+        ImGuiNET.ImGui.Text("Guardar configuração atual como:");
+        ImGuiNET.ImGui.SetNextItemWidth(220);
+        ImGuiNET.ImGui.InputText("##profilename", ref _profileSaveName, 64);
+        ImGuiNET.ImGui.SameLine();
+        if (ImGuiNET.ImGui.Button("Guardar") && !string.IsNullOrWhiteSpace(_profileSaveName))
+        {
+            _profiles.Save(_profileSaveName.Trim(), BuildProfileFromSettings());
+            DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
+        }
+
+        ImGuiNET.ImGui.Separator();
+
+        // Lista de perfis: cada um com "Carregar" e "x" (apagar com confirmação).
         var names = _profiles.ListProfiles();
-        var prev = Settings.ProfileList.Value;
-        Settings.ProfileList.Values = names;
-        if (names.Count > 0)
-            Settings.ProfileList.Value = names.Contains(prev) ? prev : names[0];
+        if (names.Count == 0)
+        {
+            ImGuiNET.ImGui.TextDisabled("(sem perfis guardados ainda — guarda um acima)");
+        }
+        else
+        {
+            ImGuiNET.ImGui.Text("Perfis guardados:");
+            foreach (var name in names)
+            {
+                ImGuiNET.ImGui.PushID(name);
+
+                if (ImGuiNET.ImGui.Button("Carregar"))
+                {
+                    var data = _profiles.Load(name);
+                    if (data != null) { ApplyProfileToSettings(data); _profileSaveName = name; }
+                    DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
+                }
+                ImGuiNET.ImGui.SameLine();
+                if (ImGuiNET.ImGui.Button("x"))
+                {
+                    _profileToDelete = name;
+                    ImGuiNET.ImGui.OpenPopup("ConfirmDelete");
+                }
+                ImGuiNET.ImGui.SameLine();
+                ImGuiNET.ImGui.Text(name);
+
+                // Popup de confirmação do apagar (por perfil).
+                if (ImGuiNET.ImGui.BeginPopup("ConfirmDelete"))
+                {
+                    ImGuiNET.ImGui.Text($"Apagar o perfil '{_profileToDelete}'?");
+                    if (ImGuiNET.ImGui.Button("Sim, apagar"))
+                    {
+                        _profiles.Delete(_profileToDelete);
+                        DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
+                        _profileToDelete = null;
+                        ImGuiNET.ImGui.CloseCurrentPopup();
+                    }
+                    ImGuiNET.ImGui.SameLine();
+                    if (ImGuiNET.ImGui.Button("Não")) { _profileToDelete = null; ImGuiNET.ImGui.CloseCurrentPopup(); }
+                    ImGuiNET.ImGui.EndPopup();
+                }
+
+                ImGuiNET.ImGui.PopID();
+            }
+        }
     }
+
+    // ── Perfis: settings ↔ ProfileData ─────────────────────────────────────────────────────
 
     /// <summary>Lê os settings atuais para um ProfileData (guardar).</summary>
     private Combat.General.ProfileData BuildProfileFromSettings()
