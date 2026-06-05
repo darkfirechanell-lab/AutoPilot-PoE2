@@ -50,6 +50,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private readonly Combat.General.BaselineRecorder _baseline = new(); // Fase 2: grava baseline do IceShot.
     private Combat.DangerDetector _danger;   // Kiting: deteta perigo (mobs a atacar perto).
     private Combat.DodgeController _dodge;    // Kiting: esquiva quando há perigo (prioridade sobre o aim).
+    private readonly Combat.General.ProfileManager _profiles = new(); // perfis guardar/carregar.
 
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
@@ -105,6 +106,20 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             var n = Combat.General.PresetApplier.Apply(Combat.General.IceShotPreset.Build(), Settings.Skills.Content);
             Settings.GeneralUseUiRules.Value = true; // ativa as regras da UI logo a seguir.
             DebugWindow.LogMsg($"[AutoPilot] Preset Ice Shot aplicado a {n} skills. Liga 'Geral' no dropdown para usar.");
+        };
+
+        // Botões de perfil: guardar/carregar a configuração da build com nome.
+        Settings.SaveProfile.OnPressed += () =>
+        {
+            var data = BuildProfileFromSettings();
+            _profiles.Save(Settings.ProfileName.Value, data);
+            DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
+        };
+        Settings.LoadProfile.OnPressed += () =>
+        {
+            var data = _profiles.Load(Settings.ProfileName.Value);
+            if (data != null) ApplyProfileToSettings(data);
+            DebugWindow.LogMsg($"[AutoPilot] {_profiles.LastMessage}");
         };
 
         // Botão "Re-detetar Teclas": limpa as teclas todas e re-atribui (corrige teclas erradas).
@@ -476,6 +491,91 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 return gen.Debug;
             default:
                 return "";
+        }
+    }
+
+    // ── Perfis: settings ↔ ProfileData ─────────────────────────────────────────────────────
+
+    /// <summary>Lê os settings atuais para um ProfileData (guardar).</summary>
+    private Combat.General.ProfileData BuildProfileFromSettings()
+    {
+        var d = new Combat.General.ProfileData
+        {
+            AttackRange = Settings.AttackRange.Value,
+            ProximalRange = Settings.ProximalRange.Value,
+            CursorJitter = Settings.CursorJitter.Value,
+            RequireCursorOnTarget = Settings.Combat.RequireCursorOnTarget.Value,
+            CursorOnTargetTolerance = Settings.Combat.CursorOnTargetTolerance.Value,
+            UseVisibility = Settings.UseVisibility.Value,
+            PauseOnPanels = Settings.PauseOnPanels.Value,
+            UseDodge = Settings.Kiting.UseDodge.Value,
+            DangerRange = Settings.Kiting.DangerRange.Value,
+            DangerThreshold = Settings.Kiting.DangerThreshold.Value,
+            DodgeCooldownMs = Settings.Kiting.DodgeCooldownMs.Value,
+            GeneralUseUiRules = Settings.GeneralUseUiRules.Value,
+            Routine = Settings.Routine.Value,
+        };
+        foreach (var s in Settings.Skills.Content)
+        {
+            if (s == null || string.IsNullOrEmpty(s.Name)) continue;
+            d.Skills.Add(new Combat.General.ProfileSkill
+            {
+                Name = s.Name, Enabled = s.Enabled.Value, Priority = s.Priority.Value, TapHoldMs = s.TapHoldMs.Value,
+                UseType = s.UseType.Value, CooldownMs = s.CooldownMs.Value, AttackInPlace = s.AttackInPlace.Value,
+                MinRarity = s.MinRarity.Value, IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
+                MinDistance = s.MinDistance.Value, MaxDistance = s.MaxDistance.Value,
+                TargetHpMin = s.TargetHpMin.Value, TargetHpMax = s.TargetHpMax.Value,
+                CloseTargets = s.CloseTargets.Value, CloseTargetsRange = s.CloseTargetsRange.Value,
+                TargetHasBuff = s.TargetHasBuff.Value, TargetMissingBuff = s.TargetMissingBuff.Value,
+                PlayerHasBuff = s.PlayerHasBuff.Value, PlayerMissingBuff = s.PlayerMissingBuff.Value,
+                BossIgnoresPlayerMissingBuff = s.BossIgnoresPlayerMissingBuff.Value,
+                ChargeBuff = s.ChargeBuff.Value, ChargeMin = s.ChargeMin.Value,
+                AfterSkill = s.AfterSkill.Value, AfterSkillDelayMs = s.AfterSkillDelayMs.Value,
+                ReleaseWhen = s.ReleaseWhen.Value, ReleaseBuffName = s.ReleaseBuffName.Value,
+                ReleaseAnimationStage = s.ReleaseAnimationStage.Value, ReleaseTimeoutMs = s.ReleaseTimeoutMs.Value,
+            });
+        }
+        return d;
+    }
+
+    /// <summary>Aplica um ProfileData carregado aos settings (settings gerais + regras por nome de skill).</summary>
+    private void ApplyProfileToSettings(Combat.General.ProfileData d)
+    {
+        Settings.AttackRange.Value = d.AttackRange;
+        Settings.ProximalRange.Value = d.ProximalRange;
+        Settings.CursorJitter.Value = d.CursorJitter;
+        Settings.Combat.RequireCursorOnTarget.Value = d.RequireCursorOnTarget;
+        Settings.Combat.CursorOnTargetTolerance.Value = d.CursorOnTargetTolerance;
+        Settings.UseVisibility.Value = d.UseVisibility;
+        Settings.PauseOnPanels.Value = d.PauseOnPanels;
+        Settings.Kiting.UseDodge.Value = d.UseDodge;
+        Settings.Kiting.DangerRange.Value = d.DangerRange;
+        Settings.Kiting.DangerThreshold.Value = d.DangerThreshold;
+        Settings.Kiting.DodgeCooldownMs.Value = d.DodgeCooldownMs;
+        Settings.GeneralUseUiRules.Value = d.GeneralUseUiRules;
+        Settings.Routine.Value = d.Routine;
+
+        // Regras por nome: aplica a cada skill da build atual a regra do perfil com o mesmo nome.
+        foreach (var s in Settings.Skills.Content)
+        {
+            if (s == null || string.IsNullOrEmpty(s.Name)) continue;
+            Combat.General.ProfileSkill p = null;
+            foreach (var ps in d.Skills) if (ps.Name == s.Name) { p = ps; break; }
+            if (p == null) continue;
+
+            s.Enabled.Value = p.Enabled; s.Priority.Value = p.Priority; s.TapHoldMs.Value = p.TapHoldMs;
+            s.UseType.Value = p.UseType; s.CooldownMs.Value = p.CooldownMs; s.AttackInPlace.Value = p.AttackInPlace;
+            s.MinRarity.Value = p.MinRarity; s.IgnoreRangeForUnique.Value = p.IgnoreRangeForUnique;
+            s.MinDistance.Value = p.MinDistance; s.MaxDistance.Value = p.MaxDistance;
+            s.TargetHpMin.Value = p.TargetHpMin; s.TargetHpMax.Value = p.TargetHpMax;
+            s.CloseTargets.Value = p.CloseTargets; s.CloseTargetsRange.Value = p.CloseTargetsRange;
+            s.TargetHasBuff.Value = p.TargetHasBuff; s.TargetMissingBuff.Value = p.TargetMissingBuff;
+            s.PlayerHasBuff.Value = p.PlayerHasBuff; s.PlayerMissingBuff.Value = p.PlayerMissingBuff;
+            s.BossIgnoresPlayerMissingBuff.Value = p.BossIgnoresPlayerMissingBuff;
+            s.ChargeBuff.Value = p.ChargeBuff; s.ChargeMin.Value = p.ChargeMin;
+            s.AfterSkill.Value = p.AfterSkill; s.AfterSkillDelayMs.Value = p.AfterSkillDelayMs;
+            s.ReleaseWhen.Value = p.ReleaseWhen; s.ReleaseBuffName.Value = p.ReleaseBuffName;
+            s.ReleaseAnimationStage.Value = p.ReleaseAnimationStage; s.ReleaseTimeoutMs.Value = p.ReleaseTimeoutMs;
         }
     }
 
