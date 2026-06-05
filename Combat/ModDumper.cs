@@ -38,7 +38,7 @@ public static class ModDumper
     /// houver pelo menos um monstro Rare ou Unique perto E se passou o intervalo mínimo (anti-spam de
     /// ficheiro). Assim, ao aparecer um raro, os mods ficam gravados sozinhos — sem carregar em nada.
     /// </summary>
-    public static void AutoDump(EntityCache entities, int minIntervalMs = 1500)
+    public static void AutoDump(EntityCache entities, int minIntervalMs = 600)
     {
         if (entities == null) return;
         // Há algum Rare/Unique no snapshot? (só esses interessam para o gate do M0)
