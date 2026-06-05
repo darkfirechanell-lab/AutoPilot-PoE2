@@ -35,15 +35,20 @@ public static class IceShotPreset
     {
         return new List<SkillRule>
         {
-            // Combo frozen: Tornado (mantém blind) → Barrage → Snipe. Só em Rare+ e alvo FROZEN.
+            // Tornado: UMA só regra (cabe num slot de UI, como a Mark). Prioridade ALTA (100) para
+            // entrar ANTES do Barrage no burst. Só Rare+. NÃO exige FROZEN: mantém o uptime do blind
+            // tanto no combo congelado como fora dele (boss). TargetMissingBuff=blinded → não reaplica
+            // enquanto o debuff está ativo; só refresca quando cai. Quando o alvo já tem blinded, esta
+            // regra não dispara e o motor segue para o Barrage. Tornado → Barrage → Snipe.
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
-                MinRarity = TargetRarity.RarePlus, TargetHasBuff = FROZEN,
-                TargetMissingBuff = BLINDED, // só refresca o blind se já caiu (uptime)
+                MinRarity = TargetRarity.RarePlus,
+                TargetMissingBuff = BLINDED,
                 CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
+            // Combo frozen: Barrage → Snipe. Só em Rare+ e alvo FROZEN.
             new()
             {
                 SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
@@ -57,15 +62,6 @@ public static class IceShotPreset
                 AfterSkill = BARRAGE, AfterSkillDelayMs = 400, // commit: Snipe entra DURANTE o empower
                 ReleaseWhen = HoldReleaseCondition.AnimationStage, ReleaseAnimationStage = 21,
                 ReleaseTimeoutMs = 2000,
-            },
-            // Tornado fora do frozen (mantém o blind no boss mesmo sem congelar).
-            new()
-            {
-                SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 70,
-                MinRarity = TargetRarity.RarePlus,
-                TargetMissingBuff = BLINDED, // mantém o blind no boss: só reaplica quando cai (uptime)
-                CooldownMs = 2000,
-                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Mark: UMA regra que funciona em TODOS os alvos (cabe num slot de UI). Marca se o alvo não
             // tem o debuff. Fora do boss não remarca enquanto tens o buff de dano (PlayerMissingBuff);
