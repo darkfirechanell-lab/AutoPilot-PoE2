@@ -46,6 +46,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private TrackedEntity _currentTarget;
     private bool _aimToggled;
     private bool _wasProcessing; // estado anterior do ShouldProcess (para marcar transições no log).
+    private readonly Combat.General.BaselineRecorder _baseline = new(); // Fase 2: grava baseline do IceShot.
 
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
@@ -86,6 +87,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         _rays.UpdateArea();
         TrySyncSkills(force: true);
+
+        // Fase 2: o recorder de baseline recebe cada ação de input via o hook do ActionLog.
+        ActionLog.OnAction = (kind, key) => _baseline.Record(kind, key);
 
         // Botão "Re-detetar Teclas": limpa as teclas todas e re-atribui (corrige teclas erradas).
         Settings.RedetectKeys.OnPressed += () =>
@@ -184,6 +188,11 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} path={SafePath(_currentTarget.Entity)} | {_targets.DiagTargetPick}");
         }
 
+        // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
+        var iceShotActive = Settings.Routine?.Value == "Ice Shot";
+        _baseline.Enabled = Settings.RecordBaseline.Value && iceShotActive;
+        _baseline.SetScenario(CurrentScenario());
+
         // Aim: aponta o cursor ao alvo (centro do corpo). Sem alvo, esquece o último cursor.
         if (_currentTarget != null)
             _aim.AimAt(_currentTarget);
@@ -252,6 +261,26 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             return sb.ToString();
         }
         catch { return "eval: (erro)"; }
+    }
+
+    /// <summary>
+    /// Fase 2: classifica o encontro atual para o baseline. Boss = alvo Unique; Rare = alvo Rare;
+    /// Pack = alvo normal/magic (lixo). None = sem alvo.
+    /// </summary>
+    private Combat.General.BaselineRecorder.Scenario CurrentScenario()
+    {
+        var t = _currentTarget?.Entity;
+        if (t == null) return Combat.General.BaselineRecorder.Scenario.None;
+        try
+        {
+            return t.Rarity switch
+            {
+                ExileCore2.Shared.Enums.MonsterRarity.Unique => Combat.General.BaselineRecorder.Scenario.Boss,
+                ExileCore2.Shared.Enums.MonsterRarity.Rare => Combat.General.BaselineRecorder.Scenario.Rare,
+                _ => Combat.General.BaselineRecorder.Scenario.Pack,
+            };
+        }
+        catch { return Combat.General.BaselineRecorder.Scenario.None; }
     }
 
     /// <summary>Path do metadata da entidade (para identificar o clone do jogador e excluí-lo).</summary>
@@ -362,6 +391,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Ao desligar/fechar o plugin: nenhuma tecla pode ficar presa.
         _routine?.Reset();
         _skills?.ReleaseAll();
+        _baseline?.FlushAll(); // Fase 2: grava o baseline pendente antes de fechar.
     }
 
     /// <summary>Sincroniza a lista de skills detetadas com a barra do jogador (tolerante a falhas).</summary>

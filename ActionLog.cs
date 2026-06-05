@@ -26,9 +26,16 @@ public static class ActionLog
 
     public static bool Enabled { get; set; }
 
+    /// <summary>
+    /// Hook opcional para reencaminhar cada ação (TAP/HOLD/RELEASE) a um observador externo — usado
+    /// pelo BaselineRecorder (Fase 2). Independente do Enabled do log (o recorder tem o seu toggle).
+    /// </summary>
+    public static Action<string, Keys> OnAction;
+
     /// <summary>Regista uma ação de input. <paramref name="kind"/> = TAP/HOLD/RELEASE, com a tecla e nota opcional.</summary>
     public static void Action(string kind, Keys key, string note = null)
     {
+        OnAction?.Invoke(kind, key); // reencaminha sempre (o recorder decide se grava)
         if (!Enabled) return;
 
         var line = $"[{DateTime.Now:mm:ss.fff}] {kind,-11} {key}";

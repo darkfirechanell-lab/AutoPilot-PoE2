@@ -28,6 +28,11 @@ public class AutoPilotSettings : ISettings
     [Menu("Mostrar Debug", "Mostra no ecrã o modo de combate, alvo, animação e buffs do alvo (para afinar timings).")]
     public ToggleNode ShowDebug { get; set; } = new(false);
 
+    [Menu("Gravar Baseline (Fase 2)", "SÓ com a rotina Ice Shot: grava a sequência de teclas por cenário " +
+        "(pack/rare/boss) para validar o motor genérico depois. Liga, combate cada cenário, desliga. Gera " +
+        "baseline_pack/rare/boss.txt. Não afeta o combate.")]
+    public ToggleNode RecordBaseline { get; set; } = new(false);
+
     [Menu("Filtrar por Visibilidade (raycast)", "Ignora mobs atrás de paredes. Se o aim não foca nada, DESLIGA isto para testar se é o raycast.")]
     public ToggleNode UseVisibility { get; set; } = new(true);
 
