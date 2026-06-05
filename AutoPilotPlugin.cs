@@ -94,6 +94,15 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Fase 2: o recorder de baseline recebe cada ação de input via o hook do ActionLog.
         ActionLog.OnAction = (kind, key) => _baseline.Record(kind, key);
 
+        // Botão "Carregar preset Ice Shot": preenche os campos [Geral] de cada skill com a rotação de
+        // gelo afinada — para o utilizador não configurar 23 campos por skill à mão.
+        Settings.LoadIceShotPreset.OnPressed += () =>
+        {
+            var n = Combat.General.PresetApplier.Apply(Combat.General.IceShotPreset.Build(), Settings.Skills.Content);
+            Settings.GeneralUseUiRules.Value = true; // ativa as regras da UI logo a seguir.
+            DebugWindow.LogMsg($"[AutoPilot] Preset Ice Shot aplicado a {n} skills. Liga 'Geral' no dropdown para usar.");
+        };
+
         // Botão "Re-detetar Teclas": limpa as teclas todas e re-atribui (corrige teclas erradas).
         Settings.RedetectKeys.OnPressed += () =>
         {

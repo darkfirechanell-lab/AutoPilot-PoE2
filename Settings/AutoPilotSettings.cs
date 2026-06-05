@@ -63,6 +63,10 @@ public class AutoPilotSettings : ISettings
         "DESLIGADO: usa o preset de gelo embutido (Ice Shot/Snipe/Barrage/Mark/Salvo/Tornado já configurado).")]
     public ToggleNode GeneralUseUiRules { get; set; } = new(false);
 
+    [Menu("[Geral] Carregar preset Ice Shot", "Preenche AUTOMATICAMENTE os campos '[Geral]' de cada skill com a " +
+        "rotação de gelo já afinada (sem configurar à mão). Depois liga 'Usar regras da UI' e testa. Ajusta o que quiseres.")]
+    public ButtonNode LoadIceShotPreset { get; set; } = new();
+
     // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown acima.
     // (ConditionalDisplay do ExileCore2 — mesmo padrão do AutoMyAim.)
     public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
