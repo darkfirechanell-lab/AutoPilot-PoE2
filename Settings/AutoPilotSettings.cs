@@ -83,7 +83,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ButtonNode RedetectKeys => SkillsSection.RedetectKeys;
 }
 
-[Submenu(CollapsedByDefault = false)]
+[Submenu(CollapsedByDefault = true)]
 public class ProfileSettings
 {
     [Menu("Perfil", "Escolhe um perfil guardado para carregar. (A lista atualiza ao guardar um novo.)")]
@@ -99,7 +99,7 @@ public class ProfileSettings
     public ButtonNode SaveProfile { get; set; } = new();
 }
 
-[Submenu(CollapsedByDefault = false)]
+[Submenu(CollapsedByDefault = true)]
 public class GeneralSettings
 {
     [Menu("Mostrar Debug", "Mostra no ecrã o modo de combate, alvo, animação e buffs do alvo (para afinar timings).")]
