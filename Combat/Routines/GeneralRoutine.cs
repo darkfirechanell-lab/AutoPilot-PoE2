@@ -67,6 +67,17 @@ public sealed class GeneralRoutine : IRoutine
             if (!_cd.Ready(rule.SkillName, rule.CooldownMs)) continue;
             if (!RuleEvaluator.Evaluate(ctx, rule)) continue;
 
+            // 3.3: encadeamento temporal. Se a regra exige sair DEPOIS de outra skill (AfterSkill):
+            var chain = ChainState(rule);
+            if (chain == Chain.NotYetUsed) continue;       // a skill-âncora ainda não saiu → esta nem entra.
+            if (chain == Chain.Waiting)
+            {
+                // A âncora saiu mas o delay ainda não passou. ESPERA — não dispara esta nem nada de menor
+                // prioridade (senão um filler entrava no meio e estragava o combo). Pára o tick aqui.
+                Debug = $"geral: aguarda {rule.AfterSkillDelayMs}ms apos {rule.AfterSkill} p/ {rule.SkillName}";
+                return;
+            }
+
             var slot = ctx.Find(rule.SkillName);
             if (slot == null || !slot.IsReady) continue;
             var key = slot.Key.Value.Key;
@@ -90,6 +101,34 @@ public sealed class GeneralRoutine : IRoutine
         }
 
         Debug = "geral: (nada)";
+    }
+
+    private enum Chain { None, NotYetUsed, Waiting, Ready }
+
+    /// <summary>
+    /// Estado do encadeamento temporal de uma regra (AfterSkill/AfterSkillDelayMs):
+    ///  • None       — sem encadeamento (regra livre).
+    ///  • NotYetUsed — a âncora ainda não saiu, OU JÁ FOI CONSUMIDA por esta skill (1 disparo por âncora).
+    ///  • Waiting    — a âncora saiu mas ainda não passaram AfterSkillDelayMs → ESPERAR (não estragar o combo).
+    ///  • Ready      — a âncora saiu, o delay passou, e esta skill ainda não a consumiu → pode disparar.
+    ///
+    /// "1 disparo por âncora" (corrige o bug do 2º Snipe órfão): a skill só dispara se a âncora saiu
+    /// MAIS RECENTEMENTE do que a própria skill. Depois de a skill disparar, sinceSkill < sinceAnchor,
+    /// logo não repete até a âncora (Barrage) sair de novo.
+    /// </summary>
+    private Chain ChainState(SkillRule rule)
+    {
+        if (string.IsNullOrEmpty(rule.AfterSkill)) return Chain.None;
+
+        var sinceAnchor = _cd.SinceMs(rule.AfterSkill);
+        if (sinceAnchor > 99999) return Chain.NotYetUsed;              // âncora nunca usada.
+        if (sinceAnchor < rule.AfterSkillDelayMs) return Chain.Waiting; // ainda no commit.
+
+        // 1 disparo por âncora: se esta skill já saiu DEPOIS da âncora atual, está consumida.
+        var sinceSelf = _cd.SinceMs(rule.SkillName);
+        if (sinceSelf <= sinceAnchor) return Chain.NotYetUsed;          // já consumiu este Barrage.
+
+        return Chain.Ready;
     }
 
     // ── Máquina de HOLD genérica (parametrizada pela regra) ─────────────────────────────────
