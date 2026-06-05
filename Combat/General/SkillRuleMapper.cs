@@ -40,6 +40,7 @@ public static class SkillRuleMapper
                 TargetMissingBuff = s.TargetMissingBuff.Value?.Trim() ?? "",
                 PlayerHasBuff = s.PlayerHasBuff.Value?.Trim() ?? "",
                 PlayerMissingBuff = s.PlayerMissingBuff.Value?.Trim() ?? "",
+                BossIgnoresPlayerMissingBuff = s.BossIgnoresPlayerMissingBuff.Value,
                 ChargeBuff = s.ChargeBuff.Value?.Trim() ?? "",
                 ChargeMin = s.ChargeMin.Value,
 

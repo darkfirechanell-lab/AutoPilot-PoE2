@@ -35,7 +35,7 @@ public static class RuleEvaluator
 
         // ── Tipo BUFF: não precisa de alvo. Só checa gates de player (buffs/charges). ──
         if (rule.UseType == SkillUseType.Buff)
-            return EvaluatePlayerGates(player, rule, out reason);
+            return EvaluatePlayerGates(player, rule, false, out reason);
 
         // ── Tipos que precisam de alvo (Tap/Hold/Persistent contra mobs) ──
         // Persistent pode correr sem alvo (premido em movimento) — mas isso é decisão do motor;
@@ -44,7 +44,7 @@ public static class RuleEvaluator
         {
             // Sem alvo: só passa se a regra não tem NENHUM gate de alvo (ex.: persistente puro).
             if (HasAnyTargetGate(rule)) { reason = "sem alvo"; return false; }
-            return EvaluatePlayerGates(player, rule, out reason);
+            return EvaluatePlayerGates(player, rule, false, out reason);
         }
 
         // Raridade mínima do alvo.
@@ -80,8 +80,8 @@ public static class RuleEvaluator
         if (!string.IsNullOrEmpty(rule.TargetMissingBuff) && BuffReader.Has(target, rule.TargetMissingBuff))
         { reason = $"alvo tem {rule.TargetMissingBuff}"; return false; }
 
-        // Gates de player (buffs/charges).
-        return EvaluatePlayerGates(player, rule, out reason);
+        // Gates de player (buffs/charges). Passa se o alvo é Unique (p/ BossIgnoresPlayerMissingBuff).
+        return EvaluatePlayerGates(player, rule, isUnique, out reason);
     }
 
     /// <summary>Sobrecarga sem o out reason (conveniência).</summary>
@@ -89,12 +89,15 @@ public static class RuleEvaluator
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────
 
-    private static bool EvaluatePlayerGates(Entity player, SkillRule rule, out string reason)
+    private static bool EvaluatePlayerGates(Entity player, SkillRule rule, bool targetIsUnique, out string reason)
     {
         reason = "ok";
         if (!string.IsNullOrEmpty(rule.PlayerHasBuff) && !BuffReader.Has(player, rule.PlayerHasBuff))
         { reason = $"player sem {rule.PlayerHasBuff}"; return false; }
-        if (!string.IsNullOrEmpty(rule.PlayerMissingBuff) && BuffReader.Has(player, rule.PlayerMissingBuff))
+
+        // PlayerMissingBuff: a Mark ignora este gate no boss (remarca mesmo com o buff de dano ativo).
+        var skipMissing = rule.BossIgnoresPlayerMissingBuff && targetIsUnique;
+        if (!skipMissing && !string.IsNullOrEmpty(rule.PlayerMissingBuff) && BuffReader.Has(player, rule.PlayerMissingBuff))
         { reason = $"player tem {rule.PlayerMissingBuff}"; return false; }
 
         if (!string.IsNullOrEmpty(rule.ChargeBuff))

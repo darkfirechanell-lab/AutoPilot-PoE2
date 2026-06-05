@@ -62,20 +62,16 @@ public static class IceShotPreset
                 MinRarity = TargetRarity.RarePlus, CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Mark: hold até pegar. Boss ignora o buff de dano (remarca); fora do boss respeita-o.
-            // NOTA: a regra "boss ignora buff / resto respeita" precisa de 2 variantes — modelada como
-            // duas regras (uma só-Unique sem PlayerMissingBuff, outra não-Unique com PlayerMissingBuff).
+            // Mark: UMA regra que funciona em TODOS os alvos (cabe num slot de UI). Marca se o alvo não
+            // tem o debuff. Fora do boss não remarca enquanto tens o buff de dano (PlayerMissingBuff);
+            // no BOSS ignora esse gate (BossIgnoresPlayerMissingBuff) e remarca sempre — reproduz a
+            // rotação do IceShot. Hold até o debuff freezing_mark aparecer no alvo.
             new()
             {
                 SkillName = MARK, UseType = SkillUseType.Hold, Priority = 60,
-                MinRarity = TargetRarity.UniqueOnly, TargetMissingBuff = MARK_ON_ENEMY, CooldownMs = 1000,
-                ReleaseWhen = HoldReleaseCondition.TargetBuffAppears, ReleaseBuffName = MARK_ON_ENEMY,
-                ReleaseTimeoutMs = 500,
-            },
-            new()
-            {
-                SkillName = MARK, UseType = SkillUseType.Hold, Priority = 59,
-                TargetMissingBuff = MARK_ON_ENEMY, PlayerMissingBuff = MARK_PLAYER_BUFF, CooldownMs = 1000,
+                TargetMissingBuff = MARK_ON_ENEMY,
+                PlayerMissingBuff = MARK_PLAYER_BUFF, BossIgnoresPlayerMissingBuff = true,
+                CooldownMs = 1000,
                 ReleaseWhen = HoldReleaseCondition.TargetBuffAppears, ReleaseBuffName = MARK_ON_ENEMY,
                 ReleaseTimeoutMs = 500,
             },

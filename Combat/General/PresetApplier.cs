@@ -70,6 +70,7 @@ public static class PresetApplier
         s.TargetMissingBuff.Value = r.TargetMissingBuff;
         s.PlayerHasBuff.Value = r.PlayerHasBuff;
         s.PlayerMissingBuff.Value = r.PlayerMissingBuff;
+        s.BossIgnoresPlayerMissingBuff.Value = r.BossIgnoresPlayerMissingBuff;
         s.ChargeBuff.Value = r.ChargeBuff;
         s.ChargeMin.Value = r.ChargeMin;
 

@@ -66,6 +66,13 @@ public sealed class SkillRule
     /// <summary>Só usa se o PLAYER NÃO TEM este buff (ex.: Ice-Tipped só se não tens "shearing_bolts").</summary>
     public string PlayerMissingBuff { get; set; } = "";
 
+    /// <summary>
+    /// Se true, a condição PlayerMissingBuff é IGNORADA quando o alvo é Unique/boss. Reproduz a regra
+    /// da Mark: fora do boss não remarca com o buff de dano ativo (respeita PlayerMissingBuff), mas no
+    /// BOSS remarca sempre (ignora o buff) para manter o debuff de freeze. Só afeta o gate PlayerMissingBuff.
+    /// </summary>
+    public bool BossIgnoresPlayerMissingBuff { get; set; } = false;
+
     /// <summary>Só usa se o player tem >= N charges deste buff (ex.: "skill_seals" >= 10). Vazio = ignora.</summary>
     public string ChargeBuff { get; set; } = "";
     public int ChargeMin { get; set; } = 0;

@@ -111,6 +111,11 @@ public sealed class SkillSlot
     public TextNode PlayerMissingBuff { get; set; } = new("");
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Boss ignora 'Player SEM buff'", "Para a Mark: no BOSS marca mesmo com o buff de dano ativo " +
+        "(ignora 'Player SEM buff'); fora do boss respeita-o. Reproduz a regra da Mark.")]
+    public ToggleNode BossIgnoresPlayerMissingBuff { get; set; } = new(false);
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Buff de charges", "Nome do buff cujas charges são contadas (ex.: skill_seals). Vazio = ignora.")]
     public TextNode ChargeBuff { get; set; } = new("");
 
