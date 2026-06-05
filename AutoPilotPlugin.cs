@@ -226,8 +226,32 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
+                $"{EvaluatorObserveLine()}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
+    }
+
+    // FASE 1: observador do RuleEvaluator. Corre o avaliador com o preset de gelo SÓ para verificação
+    // (não age, não preme nada) e regista que skills PASSARIAM as condições este tick. Serve para
+    // comparar com o que o IceShot realmente faz, antes de o motor (Fase 3) depender do avaliador.
+    private List<Combat.General.SkillRule> _evalPreset;
+    private string EvaluatorObserveLine()
+    {
+        try
+        {
+            _evalPreset ??= Combat.General.IceShotPreset.Build();
+            var sb = new System.Text.StringBuilder("eval:");
+            foreach (var rule in _evalPreset)
+            {
+                if (Combat.General.RuleEvaluator.Evaluate(_ctx, rule, out _))
+                {
+                    var n = rule.SkillName.EndsWith("Player") ? rule.SkillName[..^6] : rule.SkillName;
+                    sb.Append($" {n}(p{rule.Priority})");
+                }
+            }
+            return sb.ToString();
+        }
+        catch { return "eval: (erro)"; }
     }
 
     /// <summary>Path do metadata da entidade (para identificar o clone do jogador e excluí-lo).</summary>
