@@ -127,8 +127,9 @@ public sealed class IceShotRoutine : IRoutine
     //   FROZEN  → Tornado → Barrage → Snipe   (burst no congelado)
     //   SENÃO   → Mark → Ice-Tipped → Salvo    (preparar/iniciar a luta)
     //   FIM     → Ice Shot                      (filler, vai congelando)
-    // O Tornado tem PRIORIDADE no combo frozen, mas TAMBÉM sai fora do frozen pelo seu cooldown
-    // (mantém o blind/debuff sempre ativo no boss = mais dano, mesmo quando o alvo não está congelado).
+    // O Tornado tem PRIORIDADE no combo frozen (entra ANTES do Barrage), mas TAMBÉM sai fora do
+    // frozen pelo seu cooldown (mantém o blind/debuff ativo = mais dano, mesmo sem congelar).
+    // Só em Rare e Boss — NUNCA em lixo (Normal/Magic). Ver ExecuteClear.
     // No boss o Tornado usa o cooldown de boss; no elite o cooldown normal.
     private void ExecuteBoss(RoutineContext ctx, Entity target)
     {
@@ -152,9 +153,10 @@ public sealed class IceShotRoutine : IRoutine
 
     private void ExecuteClear(RoutineContext ctx, Entity target)
     {
+        // Lixo (Normal/Magic): SEM Tornado — o Tornado é só para Rare e Boss (pedido do utilizador
+        // 2026-06-05). Aqui só Mark/Ice-Tipped/filler; o lixo morre depressa no filler.
         if (TryMark(ctx, target)) return; // regra geral: marca se não houver buff de dano ativo
         if (TryIceTipped(ctx)) return;
-        if (TryTornado(ctx, CD_TORNADO)) return;
         TryFiller(ctx);
     }
 
