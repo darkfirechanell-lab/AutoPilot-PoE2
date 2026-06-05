@@ -152,16 +152,19 @@ public sealed class SkillSlot
     [Menu("[Geral] Timeout do hold (ms)", "Tempo máximo a segurar antes de soltar à força (rede de segurança).")]
     public RangeNode<int> ReleaseTimeoutMs { get; set; } = new(500, 50, 3000);
 
-    // ── Identidade (persiste no JSON) ──────────────────────────────────────────────────────
-    public string Name { get; set; } = "";          // nome de memória (ex.: "BarragePlayer")
-    public string InternalName { get; set; } = "";  // id estável do jogo (ex.: "barrage")
-    public string DisplayName { get; set; } = "";   // nome amigável p/ o menu
+    // ── Identidade (persiste no JSON, mas NÃO é elemento de menu) ───────────────────────────
+    // [IgnoreMenu]: o ExileCore varre as propriedades públicas para construir o menu e avisa
+    // "is not a supported settings element" para tudo o que não seja um Node. Sem isto, esses
+    // warnings sujavam o load das skills e as configs pareciam não persistir entre arranques.
+    [IgnoreMenu] public string Name { get; set; } = "";          // nome de memória (ex.: "BarragePlayer")
+    [IgnoreMenu] public string InternalName { get; set; } = "";  // id estável do jogo (ex.: "barrage")
+    [IgnoreMenu] public string DisplayName { get; set; } = "";   // nome amigável p/ o menu
 
-    // ── Estado vivo (re-ligado a cada tick; não persiste) ──────────────────────────────────
-    [JsonIgnore] public ActorSkill Live { get; set; }
+    // ── Estado vivo (re-ligado a cada tick; não persiste nem aparece no menu) ───────────────
+    [JsonIgnore, IgnoreMenu] public ActorSkill Live { get; set; }
 
     /// <summary>True se a skill está pronta a usar (existe, ligada, e o jogo permite usá-la agora).</summary>
-    public bool IsReady =>
+    [JsonIgnore, IgnoreMenu] public bool IsReady =>
         Enabled.Value
         && Key.Value.Key != Keys.None
         && Live != null
@@ -178,19 +181,19 @@ public sealed class SkillSlot
     // IsOnCooldown = entrou em cooldown (acabou de sair). Ver memória actorskill-use-confirmation.
 
     /// <summary>Estágio de uso cru (byte) do ActorSkill. -1 se ilegível.</summary>
-    public int UseStage { get { try { return Live?.SkillUseStage ?? -1; } catch { return -1; } } }
+    [JsonIgnore, IgnoreMenu] public int UseStage { get { try { return Live?.SkillUseStage ?? -1; } catch { return -1; } } }
 
     /// <summary>True se a skill está a ser usada agora (SkillUseStage > 1).</summary>
-    public bool IsUsing { get { try { return Live?.IsUsing ?? false; } catch { return false; } } }
+    [JsonIgnore, IgnoreMenu] public bool IsUsing { get { try { return Live?.IsUsing ?? false; } catch { return false; } } }
 
     /// <summary>True se a skill está a canalizar (CastType == 10).</summary>
-    public bool IsChanneling { get { try { return Live?.IsChanneling ?? false; } catch { return false; } } }
+    [JsonIgnore, IgnoreMenu] public bool IsChanneling { get { try { return Live?.IsChanneling ?? false; } catch { return false; } } }
 
     /// <summary>True se a skill está em cooldown (acabou de ser usada).</summary>
-    public bool IsOnCooldown { get { try { return Live?.IsOnCooldown ?? false; } catch { return false; } } }
+    [JsonIgnore, IgnoreMenu] public bool IsOnCooldown { get { try { return Live?.IsOnCooldown ?? false; } catch { return false; } } }
 
     /// <summary>Contador total de usos. -1 se ilegível. Um incremento = a skill saiu.</summary>
-    public int TotalUses { get { try { return Live?.TotalUses ?? -1; } catch { return -1; } } }
+    [JsonIgnore, IgnoreMenu] public int TotalUses { get { try { return Live?.TotalUses ?? -1; } catch { return -1; } } }
 
     public override string ToString() =>
         !string.IsNullOrEmpty(DisplayName) ? DisplayName : (Name ?? "");
