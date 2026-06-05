@@ -49,6 +49,10 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
     [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
     [IgnoreMenu, JsonIgnore] public ButtonNode DumpMods => Geral.DumpMods;
+#pragma warning disable CS0618 // HotkeyNode obsoleto, mas usamo-lo aqui de propósito (ver Aim Key).
+    [IgnoreMenu, JsonIgnore] public HotkeyNode DumpModsKey => Geral.DumpModsKey;
+#pragma warning restore CS0618
+    [IgnoreMenu, JsonIgnore] public ToggleNode AutoDumpMods => Geral.AutoDumpMods;
 
     // Atalhos dos perfis.
     [IgnoreMenu, JsonIgnore] public ListNode ProfileList => Perfil.ProfileList;
@@ -151,6 +155,16 @@ public class GeneralSettings
     [Menu("[Geral] Dump mods perto", "DIAGNÓSTICO (M0): escreve os mods internos dos monstros perto para ficheiro " +
         "(AutoPilot_mods_dump.txt / AutoPilot_modnames.txt). Serve para descobrir os nomes dos mods. Não afeta o combate.")]
     public ButtonNode DumpMods { get; set; } = new();
+
+    [Menu("[Geral] Tecla do dump de mods", "Faz o dump de mods SEM abrir o menu — carrega esta tecla com o jogo a " +
+        "correr (com os monstros à frente). É lida antes da pausa do plugin, por isso o overlay do Core2 não precisa de estar aberto.")]
+#pragma warning disable CS0618 // HotkeyNode obsoleto, mas aceita botões do rato e funciona com PressedOnce (ver Aim Key).
+    public HotkeyNode DumpModsKey { get; set; } = new(Keys.None);
+#pragma warning restore CS0618
+
+    [Menu("[Geral] Dump automático de mods", "Enquanto o AutoPilot está ATIVO (tecla de aim), grava os mods sozinho " +
+        "sempre que aparece um Rare/Unique perto (com intervalo de ~1.5s). Não precisas de carregar em nada. Desliga quando já tiveres os nomes.")]
+    public ToggleNode AutoDumpMods { get; set; } = new(false);
 }
 
 [Submenu(CollapsedByDefault = true)]

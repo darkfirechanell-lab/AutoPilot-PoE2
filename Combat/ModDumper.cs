@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using ExileCore2.PoEMemory.Components;
 using ExileCore2.PoEMemory.MemoryObjects;
+using ExileCore2.Shared.Enums;
 using AutoPilot.Detection;
 
 namespace AutoPilot.Combat;
@@ -29,7 +30,29 @@ public static class ModDumper
 
     public static string LastMessage { get; private set; } = "";
 
-    /// <summary>Faz o dump dos mods dos monstros do snapshot atual. Chamado pelo botão.</summary>
+    // Auto-dump: garante que não gravamos o ficheiro dezenas de vezes por segundo durante o combate.
+    private static DateTime _lastAutoDump = DateTime.MinValue;
+
+    /// <summary>
+    /// AUTO-dump durante o combate: chamado todos os ticks com o AutoPilot ativo. Só faz o dump se
+    /// houver pelo menos um monstro Rare ou Unique perto E se passou o intervalo mínimo (anti-spam de
+    /// ficheiro). Assim, ao aparecer um raro, os mods ficam gravados sozinhos — sem carregar em nada.
+    /// </summary>
+    public static void AutoDump(EntityCache entities, int minIntervalMs = 1500)
+    {
+        if (entities == null) return;
+        // Há algum Rare/Unique no snapshot? (só esses interessam para o gate do M0)
+        var hasRarePlus = false;
+        foreach (var m in entities.Monsters)
+            if (m.Rarity == MonsterRarity.Rare || m.Rarity == MonsterRarity.Unique) { hasRarePlus = true; break; }
+        if (!hasRarePlus) return;
+
+        if ((DateTime.UtcNow - _lastAutoDump).TotalMilliseconds < minIntervalMs) return;
+        _lastAutoDump = DateTime.UtcNow;
+        Dump(entities);
+    }
+
+    /// <summary>Faz o dump dos mods dos monstros do snapshot atual. Chamado pelo botão/hotkey/auto.</summary>
     public static void Dump(EntityCache entities)
     {
         try

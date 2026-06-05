@@ -167,6 +167,16 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         if (Settings.AimToggleKey.PressedOnce())
             _aimToggled = !_aimToggled;
 
+        // M0: dump de mods POR HOTKEY — lido ANTES do gate ShouldProcess para funcionar com o jogo a
+        // correr, sem abrir o overlay do Core2 (que pausaria o plugin e esvaziaria o snapshot). Faz um
+        // rebuild na hora para apanhar os monstros que estão à frente neste instante.
+        if (Settings.DumpModsKey.Value != System.Windows.Forms.Keys.None && Settings.DumpModsKey.PressedOnce())
+        {
+            try { _entities.Rebuild(); } catch { }
+            Combat.ModDumper.Dump(_entities);
+            DebugWindow.LogMsg($"[AutoPilot] {Combat.ModDumper.LastMessage}");
+        }
+
         if (!ShouldProcess())
         {
             // Marca a transição ativo→parado uma vez (diagnóstico do "atacar paredes" ao retomar).
@@ -223,6 +233,11 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         // Um único scan de entidades por tick — todas as consultas seguintes leem este snapshot.
         _entities.Rebuild();
+
+        // M0: dump AUTOMÁTICO de mods. Com o AutoPilot ativo, ao aparecer um Rare/Unique perto grava os
+        // mods sozinho (intervalo ~1.5s, não escreve o ficheiro a cada frame). Opt-in; desligar quando
+        // já tivermos os nomes. Não interfere no combate — só lê e escreve ficheiro.
+        if (Settings.AutoDumpMods.Value) Combat.ModDumper.AutoDump(_entities);
 
         // KITING: dodge tem PRIORIDADE sobre o aim. Se há perigo (mobs a atacar perto) e o dodge quer
         // agir, esquiva AGORA e salta o resto do tick (não mira nem ataca neste instante).
