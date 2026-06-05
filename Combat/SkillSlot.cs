@@ -33,14 +33,18 @@ public sealed class SkillSlot
     [Menu("Tecla", "Tecla a premir para esta skill. Auto-detetada da barra; podes mudar.")]
     public HotkeyNodeV2 Key { get; set; } = new(Keys.None);
 
-    [Menu("Prioridade", "Ordem de avaliação na rotação. MAIOR = avaliada primeiro. (Para a Routine Geral futura.)")]
-    public RangeNode<int> Priority { get; set; } = new(0, 0, 100);
-
-    [Menu("Tap Hold (ms)", "Gap entre KeyDown e KeyUp para esta skill. Para skills que precisam de mais tempo a registar.")]
-    public RangeNode<int> TapHoldMs { get; set; } = new(12, 1, 200);
-
     // ── Regras (Routine Geral) — todos os campos da SkillRule expostos na UI (Fase 3.4) ───────
     // Estes só são usados pelo motor "Geral" (dropdown Rotina de combate). O IceShot/Staff ignoram-nos.
+    // Prioridade e Tap Hold também ficam aqui (escondidos atrás de 'Mostrar config'): por defeito cada
+    // skill mostra só Ativa/Tecla/Mostrar config — menu limpo (pedido do utilizador 2026-06-05).
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Prioridade", "Ordem de avaliação na rotação. MAIOR = avaliada primeiro.")]
+    public RangeNode<int> Priority { get; set; } = new(0, 0, 100);
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Tap Hold (ms)", "Gap entre KeyDown e KeyUp para esta skill. Para skills que precisam de mais tempo a registar.")]
+    public RangeNode<int> TapHoldMs { get; set; } = new(12, 1, 200);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Tipo de uso", "Tap = um toque; Hold = segura até confirmar; Buff = sem alvo; Persistente = em movimento.")]
