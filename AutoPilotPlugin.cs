@@ -542,6 +542,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     /// </summary>
     public void DrawProfilePanel()
     {
+        // Cabeçalho colapsável próprio (o RenderMethod do ExileCore desenha sempre inline, sem o nó
+        // ▶ que colapsa). Assim o painel inteiro vive dentro de um "▶ Perfil" que abre/fecha.
+        if (!ImGuiNET.ImGui.CollapsingHeader("Perfil")) return;
+
         // Linha de ações: abrir pasta + recarregar lista do disco.
         if (ImGuiNET.ImGui.Button("Abrir pasta de perfis"))
         {
