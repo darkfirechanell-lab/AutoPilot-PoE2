@@ -92,12 +92,18 @@ public sealed class AimController
         if (JitterRadius > 0f)
             screen += GetJitter();
 
-        // Suavização: desliza do último cursor para o novo alvo.
+        // Suavização HUMANIZADA: o cursor DESLIZA do último ponto para o alvo em vez de teleportar.
+        // Usa SmoothStep (curva ease-in-out: acelera no início, desacelera no fim) em vez de Lerp
+        // linear — movimento mais natural/humano (técnica do FollowerV2). Smoothing=0 → teleporte.
+        // CUIDADO: suavização alta faz o cursor ficar "atrás" de mobs rápidos → pode falhar tiros; por
+        // isso, quando o alvo está LONGE do último cursor (mudou de alvo), salta mais depressa.
         var destination = screen;
         if (Smoothing > 0f && _hasLast)
         {
             var t = Math.Clamp(Smoothing, 0f, 1f);
-            destination = Vector2.Lerp(_lastCursor, screen, t);
+            // SmoothStep (curva Hermite ease-in-out): t' = t²(3-2t). Mais natural que o Lerp linear.
+            var eased = t * t * (3f - 2f * t);
+            destination = Vector2.Lerp(_lastCursor, screen, eased);
         }
 
         // Clamp à área visível da janela (em coords locais à janela).

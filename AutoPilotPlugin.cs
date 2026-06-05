@@ -195,8 +195,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _modes.EliteRange = Settings.AttackRange.Value;
         _targets.EnableVisibility = Settings.UseVisibility.Value;
 
-        // A3: propaga o raio de randomização do cursor (0 = desligado).
+        // A3 + humanização: propaga a randomização e a suavização do cursor (0 = desligado/teleporte).
         _aim.JitterRadius = Settings.CursorJitter.Value;
+        _aim.Smoothing = Settings.CursorSmoothing.Value;
 
         // Proximal Tangibility: alcance a partir do qual o mob com esse mod passa a ser mirável.
         Detection.EntityCache.ProximalTangibilityRange = Settings.ProximalRange.Value;

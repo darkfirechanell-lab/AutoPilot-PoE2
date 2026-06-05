@@ -44,6 +44,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Geral.AttackRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Geral.ProximalRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorJitter => Geral.CursorJitter;
+    [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorSmoothing => Geral.CursorSmoothing;
     [IgnoreMenu, JsonIgnore] public ListNode Routine => Geral.Routine;
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
     [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
@@ -123,7 +124,12 @@ public class GeneralSettings
 
     [Menu("Randomização do Cursor (px)", "Adiciona um offset aleatório pequeno ao cursor (anti-robótico). " +
         "0 = desligado (cursor exato no centro do mob). Valores altos podem fazer falhar mobs pequenos.")]
-    public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);
+    public RangeNode<float> CursorJitter { get; set; } = new(4f, 0f, 20f);
+
+    [Menu("Suavização do Cursor", "Movimento HUMANO: o cursor desliza para o mob (curva natural) em vez de " +
+        "teleportar. 0 = teleporte instantâneo (mais preciso). Maior = mais suave/humano, mas pode ficar " +
+        "atrás de mobs rápidos e falhar tiros. ~0.4 é um bom meio-termo.")]
+    public RangeNode<float> CursorSmoothing { get; set; } = new(0.4f, 0f, 1f);
 
     [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
         "build de cajado; 'Geral' = motor configurável pela UI (regras por skill em 'Skills').")]
