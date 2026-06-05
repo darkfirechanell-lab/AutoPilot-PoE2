@@ -38,6 +38,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private SkillDetector _skillDetector;
     private IceShotRoutine _iceShot;
     private StaffRoutine _staff;
+    private GeneralRoutine _general;  // Fase 3: motor configurável (corre lado a lado, opt-in).
     private IRoutine _routine;        // a routine ativa (selecionada pelo dropdown)
     private string _lastRoutineName;  // para detetar mudança no dropdown e fazer Reset
     private RoutineContext _ctx;
@@ -74,6 +75,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _skillDetector = new SkillDetector(GameController);
         _iceShot = new IceShotRoutine();
         _staff = new StaffRoutine();
+        _general = new GeneralRoutine();
+        _general.SetRules(Combat.General.IceShotPreset.Build()); // Fase 3: por agora usa o preset de gelo.
         _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
         _hud = new CombatHud();
         _ctx = new RoutineContext
@@ -409,7 +412,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private IRoutine SelectRoutine()
     {
         var name = Settings.Routine?.Value ?? "Ice Shot";
-        IRoutine chosen = name == "Staff" ? _staff : _iceShot;
+        IRoutine chosen = name switch
+        {
+            "Staff" => _staff,
+            "Geral" => _general,
+            _ => _iceShot,
+        };
 
         if (_lastRoutineName != name)
         {
@@ -430,6 +438,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 return $"{ice.ComboDebug}\n{ice.BarrageDebug}\n{ice.FillerDebug}";
             case StaffRoutine staff:
                 return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.ThunderDebug}\n{staff.FillerDebug}";
+            case GeneralRoutine gen:
+                return gen.Debug;
             default:
                 return "";
         }

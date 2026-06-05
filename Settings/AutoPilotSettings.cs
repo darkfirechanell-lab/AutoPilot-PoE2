@@ -52,10 +52,10 @@ public class AutoPilotSettings : ISettings
     public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);
 
     [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
-        "build de cajado (Whirling Assault / Tempest Bell / Killing Palm / Charged Staff / Rend).")]
+        "build de cajado; 'Geral' = motor configurável (Fase 3, EM TESTES — usa o preset de gelo por agora).")]
     public ListNode Routine { get; set; } = new()
     {
-        Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff" },
+        Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
         Value = "Ice Shot",
     };
 
