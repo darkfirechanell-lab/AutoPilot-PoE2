@@ -48,6 +48,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private bool _aimToggled;
     private bool _wasProcessing; // estado anterior do ShouldProcess (para marcar transições no log).
     private readonly Combat.General.BaselineRecorder _baseline = new(); // Fase 2: grava baseline do IceShot.
+    private Combat.DangerDetector _danger;   // Kiting: deteta perigo (mobs a atacar perto).
+    private Combat.DodgeController _dodge;    // Kiting: esquiva quando há perigo (prioridade sobre o aim).
 
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
@@ -77,6 +79,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _staff = new StaffRoutine();
         _general = new GeneralRoutine();
         _general.SetRules(Combat.General.IceShotPreset.Build()); // Fase 3: por agora usa o preset de gelo.
+        _danger = new Combat.DangerDetector();
+        _dodge = new Combat.DodgeController(_inputQueue);
         _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
         _hud = new CombatHud();
         _ctx = new RoutineContext
@@ -116,6 +120,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // e a tecla lê-se por .Value direto (Keys), ao contrário do V2 (.Value.Key). Padrão do AutoMyAim.
         ExileCore2.Input.RegisterKey(Settings.AimKey);
         ExileCore2.Input.RegisterKey(Settings.AimToggleKey);
+        ExileCore2.Input.RegisterKey(Settings.Kiting.DodgeKey);
+        Settings.Kiting.DodgeKey.OnValueChanged += () => ExileCore2.Input.RegisterKey(Settings.Kiting.DodgeKey);
         Settings.AimKey.OnValueChanged += () => ExileCore2.Input.RegisterKey(Settings.AimKey);
         Settings.AimToggleKey.OnValueChanged += () =>
         {
@@ -188,6 +194,24 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Um único scan de entidades por tick — todas as consultas seguintes leem este snapshot.
         _entities.Rebuild();
 
+        // KITING: dodge tem PRIORIDADE sobre o aim. Se há perigo (mobs a atacar perto) e o dodge quer
+        // agir, esquiva AGORA e salta o resto do tick (não mira nem ataca neste instante).
+        _danger.DangerRange = Settings.Kiting.DangerRange.Value;
+        _dodge.Enabled = Settings.Kiting.UseDodge.Value;
+        _dodge.DodgeKey = Settings.Kiting.DodgeKey.Value;
+        _dodge.DangerThreshold = Settings.Kiting.DangerThreshold.Value;
+        _dodge.CooldownMs = Settings.Kiting.DodgeCooldownMs.Value;
+        var dangerScore = _dodge.Enabled ? _danger.Evaluate(_entities) : 0f;
+        if (_dodge.WantsControl(dangerScore))
+        {
+            // Larga o que a rotação esteja a segurar (não fica com tecla presa durante a esquiva) e esquiva.
+            if (_routine.IsBusy) _routine.Reset();
+            _skills.ReleaseAll();
+            _dodge.Dodge();
+            ActionLog.Event($"DODGE (perigo {dangerScore:F1})");
+            return;
+        }
+
         // Targeting dinâmico: modo (Danger/Elite/Normal) → pesos → cluster → visibilidade → sticky.
         var previousTargetId = _currentTarget?.Entity?.Id;
         _currentTarget = _targets.SelectTarget(_entities);
@@ -248,6 +272,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
+                $"{_danger.Debug} | {_dodge.Debug}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
     }

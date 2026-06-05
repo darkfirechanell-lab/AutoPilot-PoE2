@@ -75,6 +75,9 @@ public class AutoPilotSettings : ISettings
     [Submenu]
     public CombatSettings Combat { get; set; } = new();
 
+    [Submenu]
+    public KitingSettings Kiting { get; set; } = new();
+
     [ConditionalDisplay(nameof(IsIceShotRoutine))]
     [Submenu]
     public IceShotSettings IceShot { get; set; } = new();
@@ -111,6 +114,30 @@ public class CombatSettings
     [Menu("C1: Tolerância (px)", "Distância máxima (px no ecrã) entre o cursor e o centro do alvo para considerar que " +
         "vai acertar. Menor = mais apertado. Só conta se 'Só atacar com cursor no alvo' estiver ligado.")]
     public RangeNode<float> CursorOnTargetTolerance { get; set; } = new(35f, 5f, 150f);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class KitingSettings
+{
+    [Menu("Usar Dodge", "LIGADO: esquiva automaticamente (dodge roll) quando deteta perigo (mobs perto a atacar). " +
+        "NÃO usa WASD. Quando esquiva, tem prioridade sobre o auto-aim nesse instante. Desligado por defeito.")]
+    public ToggleNode UseDodge { get; set; } = new(false);
+
+    // HotkeyNode antigo de propósito: aceita botões do rato no picker (o V2 bloqueia-os).
+#pragma warning disable CS0618
+    [Menu("Tecla de Dodge", "Tecla de esquiva do jogo (ex.: Espaço). Aceita botões do rato.")]
+    public HotkeyNode DodgeKey { get; set; } = new(Keys.Space);
+#pragma warning restore CS0618
+
+    [Menu("Alcance de perigo", "Distância (grid) até à qual um mob a atacar conta como ameaça.")]
+    public RangeNode<float> DangerRange { get; set; } = new(25f, 5f, 80f);
+
+    [Menu("Limiar de perigo", "Nível de perigo (score) acima do qual esquiva. Maior = esquiva menos (só perigo grande). " +
+        "1 mob normal perto a atacar ≈ 2; um Rare ≈ 4; um Boss ≈ 6.")]
+    public RangeNode<float> DangerThreshold { get; set; } = new(3f, 1f, 15f);
+
+    [Menu("Cooldown do Dodge (ms)", "Tempo mínimo entre esquivas (anti-spam).")]
+    public RangeNode<int> DodgeCooldownMs { get; set; } = new(1500, 300, 5000);
 }
 
 [Submenu(CollapsedByDefault = true)]
