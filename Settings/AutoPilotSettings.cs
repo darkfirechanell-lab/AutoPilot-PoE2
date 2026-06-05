@@ -48,6 +48,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ListNode Routine => Geral.Routine;
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
     [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
+    [IgnoreMenu, JsonIgnore] public ButtonNode DumpMods => Geral.DumpMods;
 
     // Atalhos dos perfis.
     [IgnoreMenu, JsonIgnore] public ListNode ProfileList => Perfil.ProfileList;
@@ -146,6 +147,10 @@ public class GeneralSettings
     [Menu("[Geral] Carregar preset Ice Shot", "Preenche AUTOMATICAMENTE os campos '[Geral]' de cada skill com a " +
         "rotação de gelo já afinada (sem configurar à mão). Depois liga 'Usar regras da UI' e testa.")]
     public ButtonNode LoadIceShotPreset { get; set; } = new();
+
+    [Menu("[Geral] Dump mods perto", "DIAGNÓSTICO (M0): escreve os mods internos dos monstros perto para ficheiro " +
+        "(AutoPilot_mods_dump.txt / AutoPilot_modnames.txt). Serve para descobrir os nomes dos mods. Não afeta o combate.")]
+    public ButtonNode DumpMods { get; set; } = new();
 }
 
 [Submenu(CollapsedByDefault = true)]

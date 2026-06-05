@@ -108,6 +108,15 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             DebugWindow.LogMsg($"[AutoPilot] Preset Ice Shot aplicado a {n} skills. Liga 'Geral' no dropdown para usar.");
         };
 
+        // M0: dump dos mods dos monstros perto (descobrir nomes internos). Usa o snapshot atual; se
+        // ainda não há snapshot (combate não correu), faz um rebuild rápido para o dump ter dados.
+        Settings.DumpMods.OnPressed += () =>
+        {
+            try { _entities.Rebuild(); } catch { }
+            Combat.ModDumper.Dump(_entities);
+            DebugWindow.LogMsg($"[AutoPilot] {Combat.ModDumper.LastMessage}");
+        };
+
         // Perfis: preenche o dropdown com os perfis já guardados.
         RefreshProfileList();
         Settings.SaveProfile.OnPressed += () =>
