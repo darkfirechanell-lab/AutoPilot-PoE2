@@ -25,19 +25,90 @@ public class AutoPilotSettings : ISettings
     public HotkeyNode AimToggleKey { get; set; } = new(Keys.None);
 #pragma warning restore CS0618
 
+    // ── Submenu GERAL (no topo) ───────────────────────────────────────────────────────────
+    [Submenu]
+    public GeneralSettings Geral { get; set; } = new();
+
+    // ── Submenu PERFIL (a seguir ao Geral) ────────────────────────────────────────────────
+    [Submenu]
+    public ProfileSettings Perfil { get; set; } = new();
+
+    // Atalhos para o resto do código continuar a aceder aos campos (movidos para o submenu Geral).
+    // Mantém a API interna sem reescrever o plugin todo.
+    public ToggleNode ShowDebug => Geral.ShowDebug;
+    public ToggleNode RecordBaseline => Geral.RecordBaseline;
+    public ToggleNode UseVisibility => Geral.UseVisibility;
+    public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
+    public RangeNode<float> AttackRange => Geral.AttackRange;
+    public RangeNode<float> ProximalRange => Geral.ProximalRange;
+    public RangeNode<float> CursorJitter => Geral.CursorJitter;
+    public ListNode Routine => Geral.Routine;
+    public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
+    public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
+
+    // Atalhos dos perfis.
+    public ListNode ProfileList => Perfil.ProfileList;
+    public ButtonNode LoadProfile => Perfil.LoadProfile;
+    public TextNode ProfileName => Perfil.ProfileName;
+    public ButtonNode SaveProfile => Perfil.SaveProfile;
+
+    // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown.
+    public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
+    public bool IsStaffRoutine() => Routine?.Value == "Staff";
+
+    [Submenu]
+    public KitingSettings Kiting { get; set; } = new();
+
+    [Submenu]
+    public CombatSettings Combat { get; set; } = new();
+
+    [ConditionalDisplay(nameof(IsIceShotRoutine))]
+    [Submenu]
+    public IceShotSettings IceShot { get; set; } = new();
+
+    [ConditionalDisplay(nameof(IsStaffRoutine))]
+    [Submenu]
+    public StaffSettings Staff { get; set; } = new();
+
+    // ── Submenu SKILLS (com o botão Re-detetar Teclas lá dentro) ──────────────────────────
+    [Submenu]
+    public SkillsSettings SkillsMenu { get; set; } = new();
+
+    // Atalho: o resto do código usa Settings.Skills.Content / RedetectKeys.
+    public ContentNode<SkillSlot> Skills => SkillsMenu.Skills;
+    public ButtonNode RedetectKeys => SkillsMenu.RedetectKeys;
+}
+
+[Submenu(CollapsedByDefault = false)]
+public class ProfileSettings
+{
+    [Menu("Perfil", "Escolhe um perfil guardado para carregar. (A lista atualiza ao guardar um novo.)")]
+    public ListNode ProfileList { get; set; } = new() { Values = new System.Collections.Generic.List<string>() };
+
+    [Menu("Carregar perfil", "Carrega o perfil escolhido em 'Perfil' (aplica as regras às skills por nome + settings).")]
+    public ButtonNode LoadProfile { get; set; } = new();
+
+    [Menu("Nome do novo perfil", "Nome para GUARDAR a configuração atual como um perfil novo (ou sobrescrever um existente).")]
+    public TextNode ProfileName { get; set; } = new("Ice Shot");
+
+    [Menu("Guardar perfil", "Guarda a configuração atual (regras [Geral] de todas as skills + settings gerais) com o 'Nome do novo perfil'.")]
+    public ButtonNode SaveProfile { get; set; } = new();
+}
+
+[Submenu(CollapsedByDefault = false)]
+public class GeneralSettings
+{
     [Menu("Mostrar Debug", "Mostra no ecrã o modo de combate, alvo, animação e buffs do alvo (para afinar timings).")]
     public ToggleNode ShowDebug { get; set; } = new(false);
 
     [Menu("Gravar Baseline (Fase 2)", "SÓ com a rotina Ice Shot: grava a sequência de teclas por cenário " +
-        "(pack/rare/boss) para validar o motor genérico depois. Liga, combate cada cenário, desliga. Gera " +
-        "baseline_pack/rare/boss.txt. Não afeta o combate.")]
+        "(pack/rare/boss) para validar o motor genérico depois. Liga, combate cada cenário, desliga. Não afeta o combate.")]
     public ToggleNode RecordBaseline { get; set; } = new(false);
 
     [Menu("Filtrar por Visibilidade (raycast)", "Ignora mobs atrás de paredes. Se o aim não foca nada, DESLIGA isto para testar se é o raycast.")]
     public ToggleNode UseVisibility { get; set; } = new(true);
 
-    [Menu("Parar com painéis abertos", "Pausa o combate quando abres o inventário/loja/skill tree. Ao fechar, retoma. " +
-        "Igual ao AutoMyAim. Se causar problemas ao retomar, desliga.")]
+    [Menu("Parar com painéis abertos", "Pausa o combate quando abres o inventário/loja/skill tree. Ao fechar, retoma.")]
     public ToggleNode PauseOnPanels { get; set; } = new(true);
 
     [Menu("Attack Range", "Distância máxima ao alvo (unidades de grid).")]
@@ -52,7 +123,7 @@ public class AutoPilotSettings : ISettings
     public RangeNode<float> CursorJitter { get; set; } = new(0f, 0f, 20f);
 
     [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
-        "build de cajado; 'Geral' = motor configurável pela UI (regras por skill em 'Skills detetadas').")]
+        "build de cajado; 'Geral' = motor configurável pela UI (regras por skill em 'Skills').")]
     public ListNode Routine { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
@@ -60,44 +131,17 @@ public class AutoPilotSettings : ISettings
     };
 
     [Menu("[Geral] Usar regras da UI", "LIGADO: o motor Geral usa as regras '[Geral]' que configuras em cada skill. " +
-        "DESLIGADO: usa o preset de gelo embutido (Ice Shot/Snipe/Barrage/Mark/Salvo/Tornado já configurado).")]
+        "DESLIGADO: usa o preset de gelo embutido.")]
     public ToggleNode GeneralUseUiRules { get; set; } = new(false);
 
     [Menu("[Geral] Carregar preset Ice Shot", "Preenche AUTOMATICAMENTE os campos '[Geral]' de cada skill com a " +
-        "rotação de gelo já afinada (sem configurar à mão). Depois liga 'Usar regras da UI' e testa. Ajusta o que quiseres.")]
+        "rotação de gelo já afinada (sem configurar à mão). Depois liga 'Usar regras da UI' e testa.")]
     public ButtonNode LoadIceShotPreset { get; set; } = new();
+}
 
-    // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown acima.
-    // (ConditionalDisplay do ExileCore2 — mesmo padrão do AutoMyAim.)
-    public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
-    public bool IsStaffRoutine() => Routine?.Value == "Staff";
-
-    [Submenu]
-    public CombatSettings Combat { get; set; } = new();
-
-    [Submenu]
-    public KitingSettings Kiting { get; set; } = new();
-
-    [ConditionalDisplay(nameof(IsIceShotRoutine))]
-    [Submenu]
-    public IceShotSettings IceShot { get; set; } = new();
-
-    [ConditionalDisplay(nameof(IsStaffRoutine))]
-    [Submenu]
-    public StaffSettings Staff { get; set; } = new();
-
-    [Menu("Perfil", "Escolhe um perfil guardado para carregar. (A lista atualiza ao guardar um novo.)")]
-    public ListNode ProfileList { get; set; } = new() { Values = new System.Collections.Generic.List<string>() };
-
-    [Menu("Carregar perfil", "Carrega o perfil escolhido em 'Perfil' (aplica as regras às skills por nome + settings).")]
-    public ButtonNode LoadProfile { get; set; } = new();
-
-    [Menu("Nome do novo perfil", "Nome para GUARDAR a configuração atual como um perfil novo (ou sobrescrever um existente).")]
-    public TextNode ProfileName { get; set; } = new("Ice Shot");
-
-    [Menu("Guardar perfil", "Guarda a configuração atual (regras [Geral] de todas as skills + settings gerais) com o 'Nome do novo perfil'.")]
-    public ButtonNode SaveProfile { get; set; } = new();
-
+[Submenu(CollapsedByDefault = true)]
+public class SkillsSettings
+{
     [Menu("Re-detetar Teclas", "Limpa e volta a atribuir automaticamente as teclas de todas as skills (usa se ficaram erradas).")]
     public ButtonNode RedetectKeys { get; set; } = new();
 
