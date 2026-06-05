@@ -3,6 +3,7 @@ using AutoPilot.Combat;
 using ExileCore2.Shared.Attributes;
 using ExileCore2.Shared.Interfaces;
 using ExileCore2.Shared.Nodes;
+using Newtonsoft.Json;
 
 namespace AutoPilot.Settings;
 
@@ -33,24 +34,25 @@ public class AutoPilotSettings : ISettings
     [Submenu]
     public ProfileSettings Perfil { get; set; } = new();
 
-    // Atalhos para o resto do código continuar a aceder aos campos (movidos para o submenu Geral).
-    // Mantém a API interna sem reescrever o plugin todo.
-    public ToggleNode ShowDebug => Geral.ShowDebug;
-    public ToggleNode RecordBaseline => Geral.RecordBaseline;
-    public ToggleNode UseVisibility => Geral.UseVisibility;
-    public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
-    public RangeNode<float> AttackRange => Geral.AttackRange;
-    public RangeNode<float> ProximalRange => Geral.ProximalRange;
-    public RangeNode<float> CursorJitter => Geral.CursorJitter;
-    public ListNode Routine => Geral.Routine;
-    public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
-    public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
+    // Atalhos para o resto do código continuar a aceder aos campos (movidos para os submenus).
+    // [IgnoreMenu] + [JsonIgnore]: NÃO renderizar no menu (senão duplicava) nem serializar (o valor
+    // real vive no submenu). Mantém a API interna (Settings.AttackRange…) sem reescrever o plugin.
+    [IgnoreMenu, JsonIgnore] public ToggleNode ShowDebug => Geral.ShowDebug;
+    [IgnoreMenu, JsonIgnore] public ToggleNode RecordBaseline => Geral.RecordBaseline;
+    [IgnoreMenu, JsonIgnore] public ToggleNode UseVisibility => Geral.UseVisibility;
+    [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
+    [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Geral.AttackRange;
+    [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Geral.ProximalRange;
+    [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorJitter => Geral.CursorJitter;
+    [IgnoreMenu, JsonIgnore] public ListNode Routine => Geral.Routine;
+    [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Geral.GeneralUseUiRules;
+    [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Geral.LoadIceShotPreset;
 
     // Atalhos dos perfis.
-    public ListNode ProfileList => Perfil.ProfileList;
-    public ButtonNode LoadProfile => Perfil.LoadProfile;
-    public TextNode ProfileName => Perfil.ProfileName;
-    public ButtonNode SaveProfile => Perfil.SaveProfile;
+    [IgnoreMenu, JsonIgnore] public ListNode ProfileList => Perfil.ProfileList;
+    [IgnoreMenu, JsonIgnore] public ButtonNode LoadProfile => Perfil.LoadProfile;
+    [IgnoreMenu, JsonIgnore] public TextNode ProfileName => Perfil.ProfileName;
+    [IgnoreMenu, JsonIgnore] public ButtonNode SaveProfile => Perfil.SaveProfile;
 
     // Mostra os settings de cada routine SÓ quando essa routine está selecionada no dropdown.
     public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
@@ -71,12 +73,13 @@ public class AutoPilotSettings : ISettings
     public StaffSettings Staff { get; set; } = new();
 
     // ── Submenu SKILLS (com o botão Re-detetar Teclas lá dentro) ──────────────────────────
+    [Menu("Skills")]
     [Submenu]
-    public SkillsSettings SkillsMenu { get; set; } = new();
+    public SkillsSettings SkillsSection { get; set; } = new();
 
-    // Atalho: o resto do código usa Settings.Skills.Content / RedetectKeys.
-    public ContentNode<SkillSlot> Skills => SkillsMenu.Skills;
-    public ButtonNode RedetectKeys => SkillsMenu.RedetectKeys;
+    // Atalhos (escondidos do menu): o resto do código usa Settings.Skills.Content / RedetectKeys.
+    [IgnoreMenu, JsonIgnore] public ContentNode<SkillSlot> Skills => SkillsSection.Content;
+    [IgnoreMenu, JsonIgnore] public ButtonNode RedetectKeys => SkillsSection.RedetectKeys;
 }
 
 [Submenu(CollapsedByDefault = false)]
@@ -146,7 +149,7 @@ public class SkillsSettings
     public ButtonNode RedetectKeys { get; set; } = new();
 
     [Menu("Skills detetadas", "Skills da barra. Cada uma tem tecla (auto), prioridade e ms de uso.")]
-    public ContentNode<SkillSlot> Skills { get; set; } = new()
+    public ContentNode<SkillSlot> Content { get; set; } = new()
     {
         EnableItemCollapsing = true,
         EnableControls = false,
