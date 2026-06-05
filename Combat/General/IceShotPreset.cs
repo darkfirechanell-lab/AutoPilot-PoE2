@@ -28,6 +28,7 @@ public static class IceShotPreset
     private const string MARK_ON_ENEMY = "freezing_mark";
     private const string MARK_PLAYER_BUFF = "freezing_mark_damage_buff";
     private const string SALVO_SEALS = "skill_seals";
+    private const string BLINDED = "blinded"; // debuff do Tornado (uptime, não spam)
 
     /// <summary>Constrói as regras de gelo no modelo genérico (ordem por prioridade decrescente).</summary>
     public static List<SkillRule> Build()
@@ -38,7 +39,9 @@ public static class IceShotPreset
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
-                MinRarity = TargetRarity.RarePlus, TargetHasBuff = FROZEN, CooldownMs = 2000,
+                MinRarity = TargetRarity.RarePlus, TargetHasBuff = FROZEN,
+                TargetMissingBuff = BLINDED, // só refresca o blind se já caiu (uptime)
+                CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             new()
@@ -59,7 +62,9 @@ public static class IceShotPreset
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 70,
-                MinRarity = TargetRarity.RarePlus, CooldownMs = 2000,
+                MinRarity = TargetRarity.RarePlus,
+                TargetMissingBuff = BLINDED, // mantém o blind no boss: só reaplica quando cai (uptime)
+                CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Mark: UMA regra que funciona em TODOS os alvos (cabe num slot de UI). Marca se o alvo não

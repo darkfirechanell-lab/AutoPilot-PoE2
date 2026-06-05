@@ -40,8 +40,9 @@ public sealed class IceShotRoutine : IRoutine
     private const string MARK_ON_ENEMY = "freezing_mark";
     private const string MARK_PLAYER_BUFF = "freezing_mark_damage_buff";
     private const string SALVO_SEALS = "skill_seals";
-    // NOTA: o debuff do Tornado (provável "blind") está por confirmar no jogo — ver memória
-    // iceshot-tornado-blind-mechanic. Quando confirmado, entra aqui e na lógica do Tornado.
+    // Debuff do Tornado CONFIRMADO no jogo: "blinded" (visto no dump de buffs como ALVO:blinded).
+    // O Tornado serve para MANTER este debuff no alvo (uptime = mais dano), não para spammar.
+    private const string TORNADO_DEBUFF = "blinded";
 
     // ── Cooldowns internos anti-spam (ms) ───────────────────────────────────────────────────
     // Iguais ao AutoMyAim (que não levava kick) — o problema do kick era o tap não-atómico, não o CD.
@@ -180,6 +181,10 @@ public sealed class IceShotRoutine : IRoutine
     private bool TryTornado(RoutineContext ctx, int cooldownMs)
     {
         if (!_cd.Ready(TORNADO, cooldownMs)) return false;
+        // UPTIME do blind: se o alvo JÁ tem "blinded", o debuff ainda está ativo → não reaplicar
+        // (poupa ações, não spamma). Só refresca quando o blind cair. Mecânica de uptime, não de timer.
+        var tgt = ctx.Target?.Entity;
+        if (tgt != null && BuffReader.Has(tgt, TORNADO_DEBUFF)) return false;
         var s = ctx.Find(TORNADO);
         if (s == null || !s.IsReady) return false;
         // SEGURA até confirmar o uso (IsUsing/cooldown do ActorSkill) ou timeout — senão o Ice Shot
