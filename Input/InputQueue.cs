@@ -87,9 +87,9 @@ public sealed class InputQueue : IDisposable
         if (_disposed || key == Keys.None) return;
         if (_heldKey == key) return; // já está em hold, nada a fazer (continuar não é input novo)
 
-        // REDE DE SEGURANÇA: o ARRANQUE de um hold é uma ação nova — respeita o gap mínimo anti-kick.
-        if (!GapElapsed()) return;
-
+        // NÃO aplicar o gate anti-kick aqui: um hold é uma ação CONTÍNUA (uma tecla premida), não spam.
+        // O kick vem de TAPS repetidos depressa (o gate está no Tap). Bloquear o início de um hold
+        // partia o combo Barrage→Snipe (a máquina marcava o hold mas a tecla não era premida).
         if (_heldKey != Keys.None) ReleaseHold();
 
         // Se a tecla tinha um tap pendente, cancela-o — o hold assume o controlo da tecla.
