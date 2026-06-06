@@ -74,6 +74,11 @@ public static class RuleEvaluator
             if (near < rule.CloseTargets) { reason = "poucos mobs perto"; return false; }
         }
 
+        // M2: gate de MOD do alvo (regex sobre os mods internos). Vazio = ignora.
+        if (!string.IsNullOrEmpty(rule.TargetMatchesMod)
+            && !ModReader.HasModMatching(target, ModRegexCache.Get(rule.TargetMatchesMod)))
+        { reason = $"alvo sem mod {rule.TargetMatchesMod}"; return false; }
+
         // Gates de buff do ALVO.
         if (!string.IsNullOrEmpty(rule.TargetHasBuff) && !BuffReader.Has(target, rule.TargetHasBuff))
         { reason = $"alvo sem {rule.TargetHasBuff}"; return false; }
@@ -114,7 +119,8 @@ public static class RuleEvaluator
         || r.MinDistance > 0f || r.MaxDistance > 0f
         || r.TargetHpMinPercent > 0f || r.TargetHpMaxPercent < 1f
         || r.CloseTargets > 0
-        || !string.IsNullOrEmpty(r.TargetHasBuff) || !string.IsNullOrEmpty(r.TargetMissingBuff);
+        || !string.IsNullOrEmpty(r.TargetHasBuff) || !string.IsNullOrEmpty(r.TargetMissingBuff)
+        || !string.IsNullOrEmpty(r.TargetMatchesMod);
 
     private static bool RarityOk(Entity target, TargetRarity min)
     {

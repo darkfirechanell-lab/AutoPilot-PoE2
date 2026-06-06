@@ -46,6 +46,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ToggleNode RecordBaseline => Geral.RecordBaseline;
     [IgnoreMenu, JsonIgnore] public ToggleNode UseVisibility => Geral.UseVisibility;
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
+    [IgnoreMenu, JsonIgnore] public ToggleNode ModTargeting => Geral.ModTargeting;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Geral.AttackRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Geral.ProximalRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorJitter => Geral.CursorJitter;
@@ -116,6 +117,11 @@ public class GeneralSettings
 
     [Menu("Parar com painéis abertos", "Pausa o combate quando abres o inventário/loja/skill tree. Ao fechar, retoma.")]
     public ToggleNode PauseOnPanels { get; set; } = new(true);
+
+    [Menu("Targeting por mod (loot)", "M2: ao escolher alvo, prioriza raros com bom loot (Unique Exile Drops) e " +
+        "despriorize os 'sem loot/xp' (No Drops Or Experience). Ajuste LIMITADO — nunca inverte boss>raro>lixo. " +
+        "Desligado por defeito.")]
+    public ToggleNode ModTargeting { get; set; } = new(false);
 
     [Menu("Attack Range", "Distância máxima ao alvo (unidades de grid).")]
     public RangeNode<float> AttackRange { get; set; } = new(100f, 5f, 600f);

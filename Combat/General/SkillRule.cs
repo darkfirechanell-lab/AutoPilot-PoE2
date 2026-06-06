@@ -56,6 +56,14 @@ public sealed class SkillRule
     public int CloseTargets { get; set; } = 0;
     public float CloseTargetsRange { get; set; } = 10f;
 
+    // ── Gate de MOD do alvo (M2; regex sobre os mods internos; vazio = ignora) ─────────────────
+    /// <summary>
+    /// Só usa a skill se o ALVO (que o targeting JÁ escolheu) casa este regex de mod (ex.:
+    /// "CorpseExploder|Volatile"). Vazio = ignora. Hierarquia: o targeting decide QUEM; este gate
+    /// decide se a skill sai contra esse alvo. Avaliado via ModReader/ModRule (cache por-tick).
+    /// </summary>
+    public string TargetMatchesMod { get; set; } = "";
+
     // ── Gates de BUFF (nome interno do jogo; vazio = ignora) ───────────────────────────────
     /// <summary>Só usa se o ALVO TEM este buff/debuff (ex.: "frozen").</summary>
     public string TargetHasBuff { get; set; } = "";

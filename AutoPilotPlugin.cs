@@ -55,6 +55,14 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private Combat.DodgeController _dodge;    // Kiting: esquiva quando há perigo (prioridade sobre o aim).
     private readonly Combat.General.ProfileManager _profiles = new(); // perfis guardar/carregar.
 
+    // M2: ModRules de targeting por loot (defaults dos mods confirmados no dump M0). Peso + prioriza,
+    // − desprioriza; o WeightEngine clampa o total para não dominar a raridade.
+    private static readonly System.Collections.Generic.List<Combat.General.ModRule> _lootTargetingRules = new()
+    {
+        new("UniqueExileDrops|SpiritPossessedAdditionalDrops|AdditionalDrops", "Bom loot", +1.5f),
+        new("NoDropsOrExperience", "Sem loot/xp", -2.0f),
+    };
+
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
     private int _skillSyncCounter;
@@ -249,6 +257,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _weights.MaxDistance = Settings.AttackRange.Value;
         _modes.EliteRange = Settings.AttackRange.Value;
         _targets.EnableVisibility = Settings.UseVisibility.Value;
+
+        // M2: targeting por mod (loot). Opt-in: ligado → aplica as ModRules de loot; desligado → null
+        // (delta 0, nada muda). O delta é clampado no WeightEngine (não inverte boss>raro>lixo).
+        _weights.ModTargetingRules = Settings.ModTargeting.Value ? _lootTargetingRules : null;
 
         // A3 + humanização: propaga a randomização e a suavização do cursor (0 = desligado/teleporte).
         _aim.JitterRadius = Settings.CursorJitter.Value;

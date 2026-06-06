@@ -32,6 +32,12 @@ public sealed class WeightEngine
     private const long LifeCacheTtlMs = 500;
     private readonly Dictionary<uint, (Life Life, long ReadAtTicks)> _lifeCache = new();
 
+    // M2: regras de mod que ajustam o peso de targeting (+ prioriza, − desprioriza). Vazio = ignora.
+    // LIMITE (auditoria): o delta total é clampado a ±MaxModDelta para NÃO dominar boss>rare>lixo —
+    // os pesos de raridade vão ~1..4, por isso um delta de ±2 ajusta a ordem sem a inverter.
+    public IReadOnlyList<Combat.General.ModRule> ModTargetingRules { get; set; }
+    public float MaxModDelta { get; set; } = 2.0f;
+
     /// <summary>
     /// Atribui <see cref="TrackedEntity.Weight"/> a cada monstro, aplicando o perfil do modo.
     /// Alvos além de <see cref="MaxDistance"/> ficam com peso 0 (ignorados).
@@ -61,9 +67,26 @@ public sealed class WeightEngine
                 weight += hpScore * HpWeight * distanceFactor;
             }
 
+            // M2: delta por MOD (loot/perigo configurável), CLAMPADO para não dominar a raridade.
+            weight += ModDelta(m.Entity);
+
             m.Weight = weight;
             // O bónus de cluster é aplicado depois, pelo ClusterEngine, escalado por profile.ClusterMultiplier.
         }
+    }
+
+    /// <summary>
+    /// M2: soma o Peso das ModRules de targeting que casam o alvo, clampado a ±MaxModDelta (para
+    /// ajustar a ordem sem inverter boss>rare>lixo). Sem regras = 0. Defensivo (nunca rebenta).
+    /// </summary>
+    private float ModDelta(Entity entity)
+    {
+        var rules = ModTargetingRules;
+        if (rules == null || rules.Count == 0 || entity == null) return 0f;
+        var delta = 0f;
+        foreach (var r in rules)
+            if (r != null && r.Matches(entity)) delta += r.Weight;
+        return Math.Clamp(delta, -MaxModDelta, MaxModDelta);
     }
 
     private float RarityBase(MonsterRarity rarity) => rarity switch
