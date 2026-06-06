@@ -17,7 +17,9 @@ namespace AutoPilot;
 /// </summary>
 public static class ActionLog
 {
-    private const string FixedPath = @"C:\Users\clona\Desktop\GamePoe\TestePoE\AutoPilot_actions.txt";
+    // ADAPTATIVO: caminho dado pelo plugin (ConfigDirectory). Fallback ao dir atual se não definido.
+    private static string FixedPath = "AutoPilot_actions.txt";
+    public static void SetDir(string dir) => FixedPath = System.IO.Path.Combine(dir ?? ".", "AutoPilot_actions.txt");
     private const int MaxLines = 600;
 
     private static readonly Queue<string> _history = new();

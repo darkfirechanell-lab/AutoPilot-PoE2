@@ -65,7 +65,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private readonly Combat.General.BaselineRecorder _baseline = new(); // Fase 2: grava baseline do IceShot.
     private Combat.DangerDetector _danger;   // Kiting: deteta perigo (mobs a atacar perto).
     private Combat.DodgeController _dodge;    // Kiting: esquiva quando há perigo (prioridade sobre o aim).
-    private readonly Combat.General.ProfileManager _profiles = new(); // perfis guardar/carregar.
+    private Combat.General.ProfileManager _profiles; // perfis guardar/carregar (init no Initialise c/ ConfigDirectory).
 
     // M2: ModRules de targeting por loot (defaults dos mods confirmados no dump M0). Peso + prioriza,
     // − desprioriza; o WeightEngine clampa o total para não dominar a raridade.
@@ -98,6 +98,16 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     {
       try
       {
+        // ADAPTATIVO: dá a pasta de config do plugin (ConfigDirectory do ExileCore) às classes que
+        // gravam ficheiros — em vez de caminhos hard-coded. Funciona onde quer que o ExileCore esteja.
+        // Logs vão para ConfigDirectory; os ficheiros de diagnóstico (debug/actions/errors/dumps) também.
+        DebugLog.SetDir(ConfigDirectory);
+        ActionLog.SetDir(ConfigDirectory);
+        ErrorLog.SetDir(ConfigDirectory);
+        Combat.ModDumper.SetDir(ConfigDirectory);
+        Combat.General.BaselineRecorder.SetDir(ConfigDirectory);
+        _profiles = new Combat.General.ProfileManager(ConfigDirectory);
+
         ErrorLog.StartSession(); // marca a sessão no log de erros (rede de segurança sempre ligada).
         Main = this; // referência estática para a UI custom dos perfis.
         // PerfWatchdog bridge: expõe o custo por frame deste plugin (us) para o PerfWatchdog medir.
@@ -535,7 +545,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         {
             var line = $"[{DateTime.Now:mm:ss.fff}] {key}\n";
             System.IO.File.AppendAllText(
-                @"C:\Users\clona\Desktop\GamePoe\TestePoE\AutoPilot_buffnames.txt", line);
+                System.IO.Path.Combine(ConfigDirectory, "AutoPilot_buffnames.txt"), line);
         }
         catch { }
     }

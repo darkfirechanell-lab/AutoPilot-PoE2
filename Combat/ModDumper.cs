@@ -26,7 +26,9 @@ namespace AutoPilot.Combat;
 /// </summary>
 public static class ModDumper
 {
-    private const string Dir = @"C:\Users\clona\Desktop\GamePoe\TestePoE";
+    // ADAPTATIVO: caminho dado pelo plugin (ConfigDirectory). Fallback ao dir atual se não definido.
+    private static string Dir = ".";
+    public static void SetDir(string dir) => Dir = dir ?? ".";
 
     public static string LastMessage { get; private set; } = "";
 

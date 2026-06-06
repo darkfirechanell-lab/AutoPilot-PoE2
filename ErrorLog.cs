@@ -18,7 +18,9 @@ namespace AutoPilot;
 /// </summary>
 public static class ErrorLog
 {
-    private const string FixedPath = @"C:\Users\clona\Desktop\GamePoe\TestePoE\AutoPilot_errors.txt";
+    // ADAPTATIVO: caminho dado pelo plugin (ConfigDirectory). Fallback ao dir atual se não definido.
+    private static string FixedPath = "AutoPilot_errors.txt";
+    public static void SetDir(string dir) => FixedPath = System.IO.Path.Combine(dir ?? ".", "AutoPilot_errors.txt");
 
     private static string _lastSignature = "";
     private static int _repeatCount;

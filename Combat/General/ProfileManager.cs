@@ -17,16 +17,19 @@ namespace AutoPilot.Combat.General;
 /// </summary>
 public sealed class ProfileManager
 {
-    private static readonly string Dir =
-        Path.Combine(@"C:\Users\clona\Desktop\GamePoe\TestePoE", "config", "AutoPilot_Profiles");
+    // ADAPTATIVO: o caminho é dado pelo plugin (ConfigDirectory do ExileCore) — não hard-coded. Assim
+    // funciona onde quer que o ExileCore esteja instalado, e para qualquer utilizador.
+    private readonly string Dir;
 
     /// <summary>Pasta onde os perfis (.json) vivem. Usada pelo botão "Abrir pasta" da UI.</summary>
     public string Folder => Dir;
 
     public string LastMessage { get; private set; } = "";
 
-    public ProfileManager()
+    /// <param name="configDir">ConfigDirectory do plugin (adaptativo). Os perfis ficam numa subpasta.</param>
+    public ProfileManager(string configDir)
     {
+        Dir = Path.Combine(configDir ?? ".", "AutoPilot_Profiles");
         try { Directory.CreateDirectory(Dir); } catch { }
     }
 
@@ -69,7 +72,7 @@ public sealed class ProfileManager
     }
 
     /// <summary>Caminho do ficheiro de um perfil (sanitiza o nome para nome de ficheiro válido).</summary>
-    private static string PathFor(string name)
+    private string PathFor(string name)
     {
         var safe = name;
         foreach (var c in Path.GetInvalidFileNameChars()) safe = safe.Replace(c, '_');

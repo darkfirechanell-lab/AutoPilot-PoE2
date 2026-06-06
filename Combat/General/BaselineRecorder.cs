@@ -21,7 +21,9 @@ public sealed class BaselineRecorder
 {
     public enum Scenario { None, Pack, Rare, Boss }
 
-    private const string Dir = @"C:\Users\clona\Desktop\GamePoe\TestePoE";
+    // ADAPTATIVO: caminho dado pelo plugin (ConfigDirectory). Fallback ao dir atual se não definido.
+    private static string Dir = ".";
+    public static void SetDir(string dir) => Dir = dir ?? ".";
     private const int MaxLinesPerScenario = 300;
     // Quanto tempo sem ações antes de considerar o "encontro" terminado e gravar em disco.
     private const int FlushIdleMs = 800;
