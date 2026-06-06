@@ -42,6 +42,7 @@ public class AutoPilotSettings : ISettings
     // [IgnoreMenu] + [JsonIgnore]: NÃO renderizar no menu (senão duplicava) nem serializar (o valor
     // real vive no submenu). Mantém a API interna (Settings.AttackRange…) sem reescrever o plugin.
     [IgnoreMenu, JsonIgnore] public ToggleNode ShowDebug => Geral.ShowDebug;
+    [IgnoreMenu, JsonIgnore] public ToggleNode WriteLogs => Geral.WriteLogs;
     [IgnoreMenu, JsonIgnore] public ToggleNode RecordBaseline => Geral.RecordBaseline;
     [IgnoreMenu, JsonIgnore] public ToggleNode UseVisibility => Geral.UseVisibility;
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
@@ -98,8 +99,13 @@ public class ProfileSettings
 [Submenu(CollapsedByDefault = true)]
 public class GeneralSettings
 {
-    [Menu("Mostrar Debug", "Mostra no ecrã o modo de combate, alvo, animação e buffs do alvo (para afinar timings).")]
+    [Menu("Mostrar texto no ecrã", "Desenha no ecrã o modo de combate, alvo, animação e buffs (para afinar timings). " +
+        "Desliga para tirar o texto de cima do jogo — os logs em ficheiro continuam se 'Gravar logs' estiver ligado.")]
     public ToggleNode ShowDebug { get; set; } = new(false);
+
+    [Menu("Gravar logs (ficheiro)", "Escreve o diagnóstico para os ficheiros AutoPilot_debug.txt / AutoPilot_actions.txt, " +
+        "SEM desenhar nada no ecrã. Deixa ligado para apanhar erros internamente sem o texto a tapar o jogo.")]
+    public ToggleNode WriteLogs { get; set; } = new(false);
 
     [Menu("Gravar Baseline (Fase 2)", "SÓ com a rotina Ice Shot: grava a sequência de teclas por cenário " +
         "(pack/rare/boss) para validar o motor genérico depois. Liga, combate cada cenário, desliga. Não afeta o combate.")]

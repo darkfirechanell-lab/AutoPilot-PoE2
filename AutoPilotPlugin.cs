@@ -306,10 +306,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             }
         }
 
-        // Escreve o estado para ficheiro (diagnóstico fora do jogo) quando o Debug está ligado.
-        DebugLog.Enabled = Settings.ShowDebug.Value;
-        ActionLog.Enabled = Settings.ShowDebug.Value;
-        if (Settings.ShowDebug.Value)
+        // Escreve o estado para FICHEIRO conforme "Gravar logs" — independente do texto no ecrã, para
+        // poder deixar os logs a correr internamente sem o HUD a tapar o jogo. Se "Mostrar texto" também
+        // estiver ligado, o ecrã reusa este mesmo conteúdo.
+        DebugLog.Enabled = Settings.WriteLogs.Value;
+        ActionLog.Enabled = Settings.WriteLogs.Value;
+        if (Settings.WriteLogs.Value || Settings.ShowDebug.Value)
         {
             var t = _currentTarget?.Entity;
             DebugLog.Write(
