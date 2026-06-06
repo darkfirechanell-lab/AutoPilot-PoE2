@@ -28,6 +28,13 @@ public static class ActionLog
     public static bool Enabled { get; set; }
 
     /// <summary>
+    /// Distância ao alvo atual (grid), atualizada pelo plugin a cada tick. O Action() inclui-a em cada
+    /// TAP/HOLD, para se poder MEDIR a que distância cada skill dispara (descobrir o range real por
+    /// skill, ex.: após trocar de arco). -1 = sem alvo.
+    /// </summary>
+    public static float CurrentTargetDistance { get; set; } = -1f;
+
+    /// <summary>
     /// Hook opcional para reencaminhar cada ação (TAP/HOLD/RELEASE) a um observador externo — usado
     /// pelo BaselineRecorder (Fase 2). Independente do Enabled do log (o recorder tem o seu toggle).
     /// </summary>
@@ -40,6 +47,9 @@ public static class ActionLog
         if (!Enabled) return;
 
         var line = $"[{DateTime.Now:mm:ss.fff}] {kind,-11} {key}";
+        // Distância ao alvo no momento do disparo (só em TAP/HOLD; RELEASE não interessa para o range).
+        if (CurrentTargetDistance >= 0f && (kind == "TAP" || kind == "HOLD"))
+            line += $"  dist={CurrentTargetDistance:F0}";
         if (!string.IsNullOrEmpty(note)) line += $"  ({note})";
 
         _history.Enqueue(line);

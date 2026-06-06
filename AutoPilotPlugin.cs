@@ -309,6 +309,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         var previousTargetId = _currentTarget?.Entity?.Id;
         _currentTarget = _targets.SelectTarget(_entities);
 
+        // Medição de range: distância ao alvo, para o ActionLog anotar a que dist cada skill dispara.
+        ActionLog.CurrentTargetDistance = _currentTarget?.Distance ?? -1f;
+
         // Marca no ActionLog quando o alvo MUDA (contexto para a sequência de teclas a seguir).
         var newTargetId = _currentTarget?.Entity?.Id;
         if (newTargetId != previousTargetId)
