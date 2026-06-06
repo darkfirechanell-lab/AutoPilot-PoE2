@@ -26,6 +26,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     /// <summary>Referência à instância viva, para a UI custom dos perfis (padrão do PickIt).</summary>
     public static AutoPilotPlugin Main { get; private set; }
 
+    // PerfWatchdog bridge: tempo do último Tick/Render em microsegundos (lido via PluginBridge).
+    private long _lastTickUs;
+    private long _lastRenderUs;
+
     private InputQueue _inputQueue;
     private SkillExecutor _skills;
     private EntityCache _entities;
@@ -88,6 +92,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
       {
         ErrorLog.StartSession(); // marca a sessão no log de erros (rede de segurança sempre ligada).
         Main = this; // referência estática para a UI custom dos perfis.
+        // PerfWatchdog bridge: expõe o custo por frame deste plugin (us) para o PerfWatchdog medir.
+        GameController.PluginBridge.SaveMethod("AutoPilot.GetTickUs", (Func<long>)(() => _lastTickUs));
+        GameController.PluginBridge.SaveMethod("AutoPilot.GetRenderUs", (Func<long>)(() => _lastRenderUs));
         _inputQueue = new InputQueue();
         _skills = new SkillExecutor(_inputQueue);
         _entities = new EntityCache(GameController);
@@ -201,6 +208,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Rede de segurança: o coração do combate (TickInner) corre dentro de um try/catch. Se algo lá
         // dentro rebentar, o erro + stack trace ficam em AutoPilot_errors.txt (e no log do Core), em vez
         // de o plugin parar em silêncio ou crashar sem rasto. Apanha bugs ESCONDIDOS, não só comportamento.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             TickInner();
@@ -212,6 +220,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             // Segurança: se rebentou a meio de um canal/tecla, larga tudo para não ficar tecla presa.
             try { _skills?.ReleaseAll(); _routine?.Reset(); } catch { }
         }
+        // PerfWatchdog bridge: tempo deste Tick em microsegundos (lido via AutoPilot.GetTickUs).
+        finally { _lastTickUs = sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency; }
     }
 
     private void TickInner()
@@ -530,6 +540,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
     public override void Render()
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             if (!Settings.Enable) return;
@@ -552,6 +563,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             ErrorLog.Report("Render", err);
             DebugWindow.LogError($"[CombatRoutine.Render] {err.Message}");
         }
+        // PerfWatchdog bridge: tempo deste Render em microsegundos (lido via AutoPilot.GetRenderUs).
+        finally { _lastRenderUs = sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency; }
     }
 
     public override void AreaChange(AreaInstance area)
