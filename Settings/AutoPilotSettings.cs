@@ -48,7 +48,7 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Geral.PauseOnPanels;
     [IgnoreMenu, JsonIgnore] public ToggleNode ModTargeting => Geral.ModTargeting;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Combat.AttackRange;
-    [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Geral.ProximalRange;
+    [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Combat.ProximalRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorJitter => Geral.CursorJitter;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorSmoothing => Geral.CursorSmoothing;
     [IgnoreMenu, JsonIgnore] public ListNode Routine => Geral.Routine;
@@ -123,10 +123,6 @@ public class GeneralSettings
         "Desligado por defeito.")]
     public ToggleNode ModTargeting { get; set; } = new(false);
 
-    [Menu("Proximal Tangibility: alcance", "Mobs com o mod 'Proximal Tangibility' são imunes à distância. " +
-        "Só são mirados quando estás MAIS PERTO que isto. Se o boss não for atacado quando já estás perto, AUMENTA.")]
-    public RangeNode<float> ProximalRange { get; set; } = new(25f, 5f, 100f);
-
     [Menu("Randomização do Cursor (px)", "Adiciona um offset aleatório pequeno ao cursor (anti-robótico). " +
         "0 = desligado (cursor exato no centro do mob). Valores altos podem fazer falhar mobs pequenos.")]
     public RangeNode<float> CursorJitter { get; set; } = new(4f, 0f, 20f);
@@ -190,6 +186,10 @@ public class CombatSettings
     [Menu("Attack Range", "Distância máxima ao alvo (unidades de grid) para o mirar/atacar. Ajusta ao alcance " +
         "real da tua arma — se trocaste de arma e o range mudou, afina aqui.")]
     public RangeNode<float> AttackRange { get; set; } = new(60f, 5f, 600f);
+
+    [Menu("Proximal Tangibility: alcance", "Mobs com o mod 'Proximal Tangibility' são imunes à distância. " +
+        "Só são mirados quando estás MAIS PERTO que isto. Se o boss não for atacado quando já estás perto, AUMENTA.")]
+    public RangeNode<float> ProximalRange { get; set; } = new(25f, 5f, 100f);
 
     [Menu("Cursor Range", "Quão perto o cursor tem de estar do alvo antes de usar skills.")]
     public RangeNode<float> CursorRange { get; set; } = new(20f, 1f, 100f);
