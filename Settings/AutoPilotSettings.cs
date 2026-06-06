@@ -225,6 +225,11 @@ public class KitingSettings
 
     [Menu("Cooldown do Dodge (ms)", "Tempo mínimo entre esquivas (anti-spam).")]
     public RangeNode<int> DodgeCooldownMs { get; set; } = new(1500, 300, 5000);
+
+    [Menu("Perigo por mods (M3)", "Mobs com mods perigosos (explosão/volatile/trilho/aura) que ESTÃO A ATACAR " +
+        "contam como mais perigo → esquiva mais cedo. Só amplifica um mob que já está a agir; NUNCA foge de um " +
+        "mob parado, mesmo com mod mau. Desligado por defeito.")]
+    public ToggleNode DangerByMods { get; set; } = new(false);
 }
 
 [Submenu(CollapsedByDefault = true)]

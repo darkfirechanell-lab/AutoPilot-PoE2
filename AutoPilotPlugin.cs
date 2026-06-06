@@ -63,6 +63,16 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         new("NoDropsOrExperience", "Sem loot/xp", -2.0f),
     };
 
+    // M3: mods PERIGOSOS (regex + MULTIPLICADOR de perigo). Nomes confirmados no dump M0. O peso
+    // multiplica o score de um mob que JÁ está a atacar — nunca cria perigo de um mob parado.
+    // Explosivos/volatile pesam mais (perigo súbito); auras/trilhos um pouco menos.
+    private static readonly System.Collections.Generic.List<Combat.General.ModRule> _dangerModRules = new()
+    {
+        new("CorpseExploder|Volatile|ExplosionOnDeath|Soulcano|Meteor|MagmaBarrier", "Explosivo", 2.5f),
+        new("GroundOnDeath|GroundTrail|Flamewaller|LightningStorms|Beacons", "Chão/trilho", 1.8f),
+        new("TemporalAura|PreventRecovery|ManaSiphon|FlaskRemoval|SoulEater", "Aura má", 1.5f),
+    };
+
     // Sincronização periódica de skills (a cada ~N ticks, não todos — é trabalho com reflection/memória).
     private const int SkillSyncEveryTicks = 30;
     private int _skillSyncCounter;
@@ -290,6 +300,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // KITING: dodge tem PRIORIDADE sobre o aim. Se há perigo (mobs a atacar perto) e o dodge quer
         // agir, esquiva AGORA e salta o resto do tick (não mira nem ataca neste instante).
         _danger.DangerRange = Settings.Kiting.DangerRange.Value;
+        // M3: mods perigosos amplificam o perigo (opt-in). Ligado → multiplica o score de um mob a
+        // atacar que tenha mod mau (esquiva mais cedo); desligado → null (só o sinal "mob a atacar").
+        _danger.DangerModRules = Settings.Kiting.DangerByMods.Value ? _dangerModRules : null;
         _dodge.Enabled = Settings.Kiting.UseDodge.Value;
         _dodge.DodgeKey = Settings.Kiting.DodgeKey.Value;
         _dodge.DangerThreshold = Settings.Kiting.DangerThreshold.Value;
