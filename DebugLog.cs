@@ -20,7 +20,8 @@ public static class DebugLog
     private static readonly Queue<string> _history = new();
     private static string _lastContent = "";
     private static long _lastFlushTicks;
-    private const int FlushMs = 500; // grava em disco no máximo 2x/s (mas acumula sempre na memória)
+    private const int FlushMs = 2000; // grava em disco no máx. 1x/2s (PERF: menos I/O no thread do jogo)
+    private static volatile bool _writing; // evita escritas concorrentes sobrepostas
 
     public static bool Enabled { get; set; }
 
@@ -40,14 +41,20 @@ public static class DebugLog
 
         var now = DateTime.UtcNow.Ticks;
         if ((now - _lastFlushTicks) / TimeSpan.TicksPerMillisecond < FlushMs) return;
+        if (_writing) return; // já há uma escrita em curso; espera o próximo flush
         _lastFlushTicks = now;
 
-        try
+        // PERF: monta a string no thread do jogo (snapshot rápido) mas faz o I/O em background, para a
+        // escrita em disco nunca bloquear um frame (causa de micro-stutter se o disco hesitar).
+        var sb = new StringBuilder();
+        foreach (var line in _history) sb.AppendLine(line);
+        var snapshot = sb.ToString();
+        _writing = true;
+        System.Threading.Tasks.Task.Run(() =>
         {
-            var sb = new StringBuilder();
-            foreach (var line in _history) sb.AppendLine(line);
-            File.WriteAllText(FixedPath, sb.ToString(), Encoding.UTF8);
-        }
-        catch { /* nunca rebenta o jogo por causa de um log */ }
+            try { File.WriteAllText(FixedPath, snapshot, Encoding.UTF8); }
+            catch { /* nunca rebenta o jogo por causa de um log */ }
+            finally { _writing = false; }
+        });
     }
 }

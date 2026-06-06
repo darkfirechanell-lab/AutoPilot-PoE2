@@ -22,7 +22,8 @@ public static class ActionLog
 
     private static readonly Queue<string> _history = new();
     private static long _lastFlushTicks;
-    private const int FlushMs = 250; // grava em disco no máx. 4x/s; acumula sempre na memória.
+    private const int FlushMs = 1500; // grava em disco no máx. ~1x/1.5s (PERF: menos I/O no thread do jogo)
+    private static volatile bool _writing; // evita escritas concorrentes sobrepostas
 
     public static bool Enabled { get; set; }
 
@@ -60,14 +61,19 @@ public static class ActionLog
     {
         var now = DateTime.UtcNow.Ticks;
         if (!force && (now - _lastFlushTicks) / TimeSpan.TicksPerMillisecond < FlushMs) return;
+        if (_writing && !force) return; // já há escrita em curso
         _lastFlushTicks = now;
 
-        try
+        // PERF: snapshot rápido no thread do jogo, I/O em background (não bloqueia frames).
+        var sb = new StringBuilder();
+        foreach (var l in _history) sb.AppendLine(l);
+        var content = sb.ToString();
+        _writing = true;
+        System.Threading.Tasks.Task.Run(() =>
         {
-            var sb = new StringBuilder();
-            foreach (var l in _history) sb.AppendLine(l);
-            File.WriteAllText(FixedPath, sb.ToString(), Encoding.UTF8);
-        }
-        catch { /* nunca rebenta o jogo por causa de um log */ }
+            try { File.WriteAllText(FixedPath, content, Encoding.UTF8); }
+            catch { /* nunca rebenta o jogo por causa de um log */ }
+            finally { _writing = false; }
+        });
     }
 }

@@ -156,33 +156,22 @@ public sealed class EntityCache
         if (stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1)
             return false;
 
-        // Buffs de imunidade (apanha clones de boss que ficam imunes sem mexer na stat).
-        if (HasInvulnBuff(entity))
-            return false;
-
-        // Proximal Tangibility: imune a ataques à DISTÂNCIA. Só é alvo válido quando estás PERTO
-        // (dist < limiar). De longe filtra-se — senão o aim desperdiçava-se nele e os tiros falhavam.
-        if (distance > ProximalTangibilityRange && HasProximalIntangibility(entity))
+        // PERF: lê o componente Buffs UMA SÓ VEZ e percorre a BuffsList UMA vez, verificando as duas
+        // coisas (imunidade total + proximal intangibility) no mesmo varrimento. Antes liam-se os buffs
+        // 2x por mob — num pack de 40+ mobs isso dobrava a leitura de memória mais cara, a cada tick
+        // (causa provável do micro-stutter). O proximal só importa à distância.
+        var checkProximal = distance > ProximalTangibilityRange;
+        if (BuffsBlockTarget(entity, checkProximal))
             return false;
 
         return true;
     }
 
-    private static bool HasProximalIntangibility(Entity entity)
-    {
-        try
-        {
-            if (!entity.TryGetComponent<Buffs>(out var buffs) || buffs?.BuffsList == null)
-                return false;
-            foreach (var b in buffs.BuffsList)
-                if (b?.Name != null && b.Name.Contains("proximal_intangibility", StringComparison.OrdinalIgnoreCase))
-                    return true;
-        }
-        catch { }
-        return false;
-    }
-
-    private static bool HasInvulnBuff(Entity entity)
+    /// <summary>
+    /// UMA leitura dos buffs do mob: devolve true se algum buff o torna inválido como alvo — imunidade
+    /// total (InvulnBuffFragments) OU (se <paramref name="checkProximal"/>) proximal intangibility.
+    /// </summary>
+    private static bool BuffsBlockTarget(Entity entity, bool checkProximal)
     {
         try
         {
@@ -193,6 +182,10 @@ public sealed class EntityCache
             {
                 var name = b?.Name;
                 if (string.IsNullOrEmpty(name)) continue;
+
+                if (checkProximal && name.Contains("proximal_intangibility", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
                 foreach (var frag in InvulnBuffFragments)
                     if (name.Contains(frag, StringComparison.OrdinalIgnoreCase))
                         return true;
