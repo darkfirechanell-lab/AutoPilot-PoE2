@@ -183,6 +183,10 @@ public sealed class IceShotRoutine : IRoutine
     private bool TryTornado(RoutineContext ctx, int cooldownMs)
     {
         if (!_cd.Ready(TORNADO, cooldownMs)) return false;
+        // C1: o Tornado é dano DIRECIONAL (sai para onde o cursor aponta). Só dispara se o cursor já
+        // está EM CIMA do alvo — senão, com o aim suavizado, o cursor ainda está a caminho e o Tornado
+        // saía "à toa" para uma posição intermédia. Mesmo gate do Ice Shot/Snipe.
+        if (!ctx.CanHit) return false;
         // UPTIME do blind: se o alvo JÁ tem "blinded", o debuff ainda está ativo → não reaplicar
         // (poupa ações, não spamma). Só refresca quando o blind cair. Mecânica de uptime, não de timer.
         var tgt = ctx.Target?.Entity;
