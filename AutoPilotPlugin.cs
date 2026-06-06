@@ -338,14 +338,18 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         {
             _evalPreset ??= Combat.General.IceShotPreset.Build();
             var sb = new System.Text.StringBuilder("eval:");
+            string barrageReason = null;
             foreach (var rule in _evalPreset)
             {
-                if (Combat.General.RuleEvaluator.Evaluate(_ctx, rule, out _))
-                {
-                    var n = rule.SkillName.EndsWith("Player") ? rule.SkillName[..^6] : rule.SkillName;
+                var ok = Combat.General.RuleEvaluator.Evaluate(_ctx, rule, out var reason);
+                var n = rule.SkillName.EndsWith("Player") ? rule.SkillName[..^6] : rule.SkillName;
+                if (ok)
                     sb.Append($" {n}(p{rule.Priority})");
-                }
+                // Diagnóstico focado: PORQUÊ o Barrage (não) passa — para apanhar o "Barrage não usa".
+                else if (rule.SkillName == "BarragePlayer" && barrageReason == null)
+                    barrageReason = reason;
             }
+            if (barrageReason != null) sb.Append($" | BARRAGE bloqueado: {barrageReason}");
             return sb.ToString();
         }
         catch { return "eval: (erro)"; }
