@@ -235,6 +235,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // B2: invalida a cache de buffs no início do tick. A partir daqui, cada entidade é lida da
         // memória só uma vez por tick; as ~8 consultas de buff da rotação reusam a snapshot.
         Combat.BuffReader.NewTick();
+        Combat.ModReader.NewTick(); // M1: invalida a cache de mods (mesmo padrão do BuffReader).
 
         // Lê o estado de animação do jogador uma vez (Snipe stage, Barrage progress, etc.).
         _animation.Update();
@@ -352,6 +353,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{_aim.AimDebug}\n" +
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
+                $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
@@ -433,6 +435,33 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                     AccumulateBuffName(entity == GameController?.Player ? "PLAYER" : "ALVO", b.Name);
                 }
             return names.Count == 0 ? "(nenhum)" : string.Join(", ", names);
+        }
+        catch { return "?"; }
+    }
+
+    // M1 (teste do ModReader/ModRule, SEM mudar o combate): mostra os mods do alvo lidos pelo ModReader
+    // e quais casam com ModRules de exemplo (perigosos / loot). Confirma que a leitura+regex funcionam
+    // contra dados reais antes de o M2/M3 dependerem disto.
+    private static readonly Combat.General.ModRule _testRuleDanger =
+        new("CorpseExploder|Volatile|ExplosionOnDeath|GroundOnDeath|GroundTrail|Beacons|Flamewaller|LightningStorms|Meteor|Soulcano", "PERIGO", 1f);
+    private static readonly Combat.General.ModRule _testRuleLoot =
+        new("UniqueExileDrops|AdditionalDrops", "LOOT", 1f);
+    private static readonly Combat.General.ModRule _testRuleNoDrop =
+        new("NoDropsOrExperience", "SEM-LOOT", -1f);
+
+    private string ModNamesLine(ExileCore2.PoEMemory.MemoryObjects.Entity entity)
+    {
+        try
+        {
+            if (entity == null) return "(sem entidade)";
+            var mods = Combat.ModReader.GetMods(entity);
+            if (mods.Count == 0) return "(nenhum)";
+            var tags = new List<string>();
+            if (_testRuleDanger.Matches(entity)) tags.Add("PERIGO");
+            if (_testRuleLoot.Matches(entity)) tags.Add("LOOT");
+            if (_testRuleNoDrop.Matches(entity)) tags.Add("SEM-LOOT");
+            var tagStr = tags.Count > 0 ? $" [{string.Join(",", tags)}]" : "";
+            return string.Join(", ", mods) + tagStr;
         }
         catch { return "?"; }
     }
