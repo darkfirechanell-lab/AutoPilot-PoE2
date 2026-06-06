@@ -66,6 +66,9 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
     public override bool Initialise()
     {
+      try
+      {
+        ErrorLog.StartSession(); // marca a sessão no log de erros (rede de segurança sempre ligada).
         Main = this; // referência estática para a UI custom dos perfis.
         _inputQueue = new InputQueue();
         _skills = new SkillExecutor(_inputQueue);
@@ -165,9 +168,35 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         };
 
         return true;
+      }
+      catch (Exception err)
+      {
+          // Se o arranque rebenta, regista (senão o plugin não carregava sem rasto claro).
+          ErrorLog.Report("Initialise", err);
+          DebugWindow.LogError($"[AutoPilot.Initialise] {err.Message}");
+          return false;
+      }
     }
 
     public override void Tick()
+    {
+        // Rede de segurança: o coração do combate (TickInner) corre dentro de um try/catch. Se algo lá
+        // dentro rebentar, o erro + stack trace ficam em AutoPilot_errors.txt (e no log do Core), em vez
+        // de o plugin parar em silêncio ou crashar sem rasto. Apanha bugs ESCONDIDOS, não só comportamento.
+        try
+        {
+            TickInner();
+        }
+        catch (Exception err)
+        {
+            ErrorLog.Report("Tick", err);
+            DebugWindow.LogError($"[AutoPilot.Tick] {err.Message}");
+            // Segurança: se rebentou a meio de um canal/tecla, larga tudo para não ficar tecla presa.
+            try { _skills?.ReleaseAll(); _routine?.Reset(); } catch { }
+        }
+    }
+
+    private void TickInner()
     {
         // O toggle alterna mesmo fora de processamento (para poder ligar/desligar a qualquer momento).
         if (Settings.AimToggleKey.PressedOnce())
@@ -463,7 +492,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         }
         catch (Exception err)
         {
-            DebugWindow.LogError($"[CombatRoutine.Render] {err}");
+            ErrorLog.Report("Render", err);
+            DebugWindow.LogError($"[CombatRoutine.Render] {err.Message}");
         }
     }
 
@@ -492,7 +522,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private void TrySyncSkills(bool force)
     {
         try { _skillDetector.Sync(Settings.Skills.Content, force); }
-        catch (Exception err) { DebugWindow.LogError($"[CombatRoutine.SyncSkills] {err}"); }
+        catch (Exception err) { ErrorLog.Report("SyncSkills", err); DebugWindow.LogError($"[CombatRoutine.SyncSkills] {err.Message}"); }
     }
 
     /// <summary>
@@ -754,7 +784,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         }
         catch (Exception err)
         {
-            DebugWindow.LogError($"[CombatRoutine.ShouldProcess] {err}");
+            ErrorLog.Report("ShouldProcess", err);
+            DebugWindow.LogError($"[CombatRoutine.ShouldProcess] {err.Message}");
             return false;
         }
     }
