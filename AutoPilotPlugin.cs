@@ -423,6 +423,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
+                $"{_skillDetector.ProfileLine()}\n" +
                 $"prof(us) sync={_profSyncUs} rebuild={_profRebuildUs} target={_profTargetUs} aim={_profAimUs} routine={_profRoutineUs} " +
                 $"| PICOS sync={_profSyncPeakUs} rebuild={_profRebuildPeakUs} target={_profTargetPeakUs} aim={_profAimPeakUs} routine={_profRoutinePeakUs}\n" +
                 $"playerAnim {_animation.DebugLine()}");

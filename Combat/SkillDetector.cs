@@ -28,6 +28,17 @@ public sealed class SkillDetector
     private readonly GameController _gc;
     private int _lastHash;
 
+    // S0 (SKILL_SYNC_PLANO): medição. Tempo do último ResolveEquipped em us + nº de skills resolvidas,
+    // e um teste de validade dos objetos ActorSkill entre ticks (decide se dá para cachear a lista).
+    private long _lastResolveUs;
+    private int _lastResolveCount;
+    private List<ActorSkill> _prevEquipped;   // a lista do tick anterior (para testar validade)
+    private string _validityResult = "?";
+
+    /// <summary>Linha de diagnóstico da S0 para o debug ("skillsync:"). Só medição, não muda nada.</summary>
+    public string ProfileLine() =>
+        $"skillsync: resolve={_lastResolveUs}us n={_lastResolveCount} validade-entre-ticks={_validityResult}";
+
     // Skills inerentes (todo o personagem tem) a esconder da lista de combate.
     private static readonly HashSet<string> Inherent = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -111,7 +122,31 @@ public sealed class SkillDetector
 
     // ── Internos ───────────────────────────────────────────────────────────────────────────
 
+    // S0: wrapper que CRONOMETRA o ResolveEquipped (a operação cara) e testa a validade dos objetos do
+    // tick anterior — para o plano decidir se dá para cachear a lista entre ticks. Só medição.
     private List<ActorSkill> ResolveEquipped(IList<ActorSkill> actorSkills)
+    {
+        // Teste de validade: os objetos ActorSkill do tick ANTERIOR ainda são válidos neste tick?
+        // (decide S2.1: cachear a lista vs re-resolver). Address != 0 + ler .Name sem rebentar.
+        if (_prevEquipped != null && _prevEquipped.Count > 0)
+        {
+            var ok = 0; var total = _prevEquipped.Count;
+            foreach (var ak in _prevEquipped)
+            {
+                try { if (ak != null && ak.Address != 0 && !string.IsNullOrEmpty(ak.Name)) ok++; } catch { }
+            }
+            _validityResult = ok == total ? $"VALIDOS({ok}/{total})" : $"INVALIDOS({ok}/{total})";
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var result = ResolveEquippedRaw(actorSkills);
+        _lastResolveUs = sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+        _lastResolveCount = result.Count;
+        _prevEquipped = result;
+        return result;
+    }
+
+    private List<ActorSkill> ResolveEquippedRaw(IList<ActorSkill> actorSkills)
     {
         if (actorSkills == null) return new List<ActorSkill>();
 
