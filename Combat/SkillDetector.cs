@@ -34,10 +34,17 @@ public sealed class SkillDetector
     private int _lastResolveCount;
     private List<ActorSkill> _prevEquipped;   // a lista do tick anterior (para testar validade)
     private string _validityResult = "?";
+    // Apanhar o MOMENTO DA TROCA (o caso crítico que o teste normal pode falhar por o DebugLog só gravar
+    // mudanças): contadores que PERSISTEM — nº de trocas detetadas (n mudou) e se ALGUMA troca deu objetos
+    // inválidos. Assim, mesmo que a troca seja num instante, fica registado e não escapa.
+    private int _prevCount = -1;
+    private int _changeCount;          // quantas vezes o nº de skills mudou (= trocas de skill/weapon)
+    private int _invalidAtChange;      // quantas dessas trocas deixaram objetos do tick anterior inválidos
 
     /// <summary>Linha de diagnóstico da S0 para o debug ("skillsync:"). Só medição, não muda nada.</summary>
     public string ProfileLine() =>
-        $"skillsync: resolve={_lastResolveUs}us n={_lastResolveCount} validade-entre-ticks={_validityResult}";
+        $"skillsync: resolve={_lastResolveUs}us n={_lastResolveCount} validade={_validityResult} " +
+        $"trocas={_changeCount} trocas-com-invalidos={_invalidAtChange}";
 
     // Skills inerentes (todo o personagem tem) a esconder da lista de combate.
     private static readonly HashSet<string> Inherent = new(StringComparer.OrdinalIgnoreCase)
@@ -128,6 +135,7 @@ public sealed class SkillDetector
     {
         // Teste de validade: os objetos ActorSkill do tick ANTERIOR ainda são válidos neste tick?
         // (decide S2.1: cachear a lista vs re-resolver). Address != 0 + ler .Name sem rebentar.
+        var allValid = true;
         if (_prevEquipped != null && _prevEquipped.Count > 0)
         {
             var ok = 0; var total = _prevEquipped.Count;
@@ -135,13 +143,23 @@ public sealed class SkillDetector
             {
                 try { if (ak != null && ak.Address != 0 && !string.IsNullOrEmpty(ak.Name)) ok++; } catch { }
             }
-            _validityResult = ok == total ? $"VALIDOS({ok}/{total})" : $"INVALIDOS({ok}/{total})";
+            allValid = ok == total;
+            _validityResult = allValid ? $"VALIDOS({ok}/{total})" : $"INVALIDOS({ok}/{total})";
         }
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var result = ResolveEquippedRaw(actorSkills);
         _lastResolveUs = sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
         _lastResolveCount = result.Count;
+
+        // Apanhar o momento da TROCA: o nº de skills mudou face ao tick anterior? Se sim, conta a troca
+        // e regista SE nesse momento os objetos antigos ficaram inválidos (o caso crítico para cachear).
+        if (_prevCount >= 0 && result.Count != _prevCount)
+        {
+            _changeCount++;
+            if (!allValid) _invalidAtChange++;
+        }
+        _prevCount = result.Count;
         _prevEquipped = result;
         return result;
     }
