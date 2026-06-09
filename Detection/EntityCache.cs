@@ -33,6 +33,15 @@ public sealed class EntityCache
     // Validado pela micro-medição R1.0 (contadores abaixo). Limpo de ids mortos a cada Rebuild.
     private readonly Dictionary<uint, (MonsterRarity Rarity, long Address)> _rarityCache = new(128);
     private readonly HashSet<uint> _seenThisTick = new(128);
+
+    // R1.5: cache do RESULTADO de BuffsBlockTarget (a leitura PATOLÓGICA — picou a 3.3ms num só mob).
+    // Os buffs de imunidade/proximal mudam devagar, não precisam de re-leitura a cada frame. TTL 250ms
+    // (re-lê 4x/s em vez de 60x/s → corta ~93% das leituras de buffs). Chave id+Address (anti-reciclagem);
+    // re-lê quando o TTL expira OU o mob é novo. Guarda também o checkProximal usado (se mudar perto↔longe,
+    // re-lê na hora — o proximal depende da distância).
+    private readonly Dictionary<uint, (bool Blocked, long Address, long ReadAtTicks, bool CheckedProximal)> _buffCache = new(128);
+    private const long BuffCacheTtlMs = 250;
+    private int _buffReads, _buffCacheHits;
     // R1.0 — micro-medição: quantas vezes um id REAPAREEU com Address diferente (reciclagem detetada).
     // Se isto subir, a cache anti-reciclagem está a fazer o seu trabalho (e prova que era preciso).
     private int _recycleDetected;
@@ -43,7 +52,7 @@ public sealed class EntityCache
     /// <summary>Diagnóstico R1/R0 para o debug.</summary>
     public string RebuildProfileLine() =>
         $"rebuildcache: source={_profSourceCount} valid-us={_profValidUs} (path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) " +
-        $"rarity-us={_profRarityUs} cached={_rarityCache.Count} recicl={_recycleDetected}";
+        $"buff-reads={_buffReads} buff-hits={_buffCacheHits} recicl={_recycleDetected}";
 
     public EntityCache(GameController gameController)
     {
@@ -110,6 +119,13 @@ public sealed class EntityCache
             _staleIds.Clear();
             foreach (var kv in _rarityCache) if (!_seenThisTick.Contains(kv.Key)) _staleIds.Add(kv.Key);
             foreach (var id in _staleIds) _rarityCache.Remove(id);
+        }
+        // R1.5: limpa o buff-cache dos ids que saíram do snapshot.
+        if (_buffCache.Count > _seenThisTick.Count)
+        {
+            _staleIds.Clear();
+            foreach (var kv in _buffCache) if (!_seenThisTick.Contains(kv.Key)) _staleIds.Add(kv.Key);
+            foreach (var id in _staleIds) _buffCache.Remove(id);
         }
     }
 
@@ -205,7 +221,7 @@ public sealed class EntityCache
     internal static long ProfPathUs, ProfStatsUs, ProfBuffsUs;
     private static readonly System.Diagnostics.Stopwatch _ivtSw = new();
 
-    private static bool IsValidTarget(Entity entity, float distance)
+    private bool IsValidTarget(Entity entity, float distance)
     {
         if (entity == null) return false;
         if (!entity.IsValid || !entity.IsAlive || entity.IsDead) return false;
@@ -232,11 +248,37 @@ public sealed class EntityCache
         // (causa provável do micro-stutter). O proximal só importa à distância.
         _ivtSw.Restart();
         var checkProximal = distance > ProximalTangibilityRange;
-        var blockedByBuff = BuffsBlockTarget(entity, checkProximal);
+        var blockedByBuff = BuffsBlockCached(entity, checkProximal); // R1.5: cache TTL 250ms.
         ProfBuffsUs += _ivtSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
         if (blockedByBuff) return false;
 
         return true;
+    }
+
+    /// <summary>
+    /// R1.5: BuffsBlockTarget COM cache (TTL 250ms). Reusa o resultado se o mesmo mob (id+Address) foi
+    /// lido há &lt;250ms COM o mesmo checkProximal. Re-lê se: mob novo, TTL expirou, ou o checkProximal
+    /// mudou (perto↔longe — o proximal depende da distância, tem de reavaliar). Corta ~93% das leituras.
+    /// </summary>
+    private bool BuffsBlockCached(Entity entity, bool checkProximal)
+    {
+        var now = DateTime.UtcNow.Ticks;
+        long addr; try { addr = (long)entity.Address; } catch { _buffReads++; return BuffsBlockTarget(entity, checkProximal); }
+        var id = entity.Id;
+
+        if (_buffCache.TryGetValue(id, out var c)
+            && c.Address == addr
+            && c.CheckedProximal == checkProximal
+            && (now - c.ReadAtTicks) / TimeSpan.TicksPerMillisecond < BuffCacheTtlMs)
+        {
+            _buffCacheHits++;
+            return c.Blocked; // dentro do TTL, mesmo mob, mesma condição → reusa.
+        }
+
+        _buffReads++;
+        var blocked = BuffsBlockTarget(entity, checkProximal);
+        _buffCache[id] = (blocked, addr, now, checkProximal);
+        return blocked;
     }
 
     /// <summary>
