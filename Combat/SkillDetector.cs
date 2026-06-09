@@ -41,10 +41,10 @@ public sealed class SkillDetector
     private int _changeCount;          // quantas vezes o nº de skills mudou (= trocas de skill/weapon)
     private int _invalidAtChange;      // quantas dessas trocas deixaram objetos do tick anterior inválidos
 
-    /// <summary>Linha de diagnóstico da S0 para o debug ("skillsync:"). Só medição, não muda nada.</summary>
+    /// <summary>Linha de diagnóstico (S0+S1) para o debug ("skillsync:"). Só medição, não muda nada.</summary>
     public string ProfileLine() =>
         $"skillsync: resolve={_lastResolveUs}us n={_lastResolveCount} validade={_validityResult} " +
-        $"trocas={_changeCount} trocas-com-invalidos={_invalidAtChange}";
+        $"trocas={_changeCount} cache-hits={_cacheHits} re-resolves={_resolves}";
 
     // Skills inerentes (todo o personagem tem) a esconder da lista de combate.
     private static readonly HashSet<string> Inherent = new(StringComparer.OrdinalIgnoreCase)
@@ -57,6 +57,58 @@ public sealed class SkillDetector
         _gc = gameController;
     }
 
+    // S1 (SKILL_SYNC_PLANO): CACHE da lista 'equipped' (validada pela S0: objetos sobrevivem entre ticks,
+    // trocas-com-invalidos=0). O ResolveEquipped (caro, ~0.5ms) corria 2x/tick (Sync + RelinkLive). Agora
+    // só corre quando um HASH BARATO das ActorSkills cruas muda (count + Id2 dos slots), que cobre
+    // G/weapon-swap/troca de gema. Entre mudanças, reusa-se a lista cacheada → 0 ResolveEquipped no
+    // hot-path quando nada mudou.
+    private List<ActorSkill> _equippedCache;
+    private int _cheapHash = int.MinValue;
+
+    /// <summary>
+    /// Devolve a lista de skills equipadas, REUSANDO a cache se as skills cruas não mudaram (hash barato).
+    /// Só faz o ResolveEquipped (caro) quando o hash barato muda. É a fonte única de 'equipped' por tick.
+    /// </summary>
+    // Diagnóstico S1: quantas vezes reusou a cache vs re-resolveu (prova que a cache poupa trabalho).
+    private long _cacheHits, _resolves;
+
+    private List<ActorSkill> GetEquippedCached(IList<ActorSkill> actorSkills)
+    {
+        if (actorSkills == null) return _equippedCache ?? new List<ActorSkill>();
+
+        var cheap = CheapHash(actorSkills);
+        if (_equippedCache != null && cheap == _cheapHash)
+        {
+            _cacheHits++;
+            return _equippedCache; // nada mudou → reusa (sem ResolveEquipped).
+        }
+
+        _resolves++;
+        _cheapHash = cheap;
+        _equippedCache = ResolveEquipped(actorSkills); // mudou → re-resolve (caro, mas raro).
+        return _equippedCache;
+    }
+
+    /// <summary>
+    /// Hash BARATO das ActorSkills cruas: nº de skills + Id2 de cada (sem LINQ pesado, sem GroupBy/OrderBy).
+    /// Muda quando uma skill é adicionada/removida/trocada (G, weapon-swap, troca de gema). É o gatilho do
+    /// re-resolve. NÃO inclui shortcuts — a mudança de tecla é tratada à parte no Sync (force).
+    /// </summary>
+    private static int CheapHash(IList<ActorSkill> actorSkills)
+    {
+        var h = 17;
+        foreach (var ak in actorSkills)
+        {
+            try
+            {
+                if (ak == null || ak.Address == 0) continue;
+                h = h * 31 + (int)ak.Id2 + (SlotOf(ak) << 8);
+            }
+            catch { }
+        }
+        return h;
+    }
+
     /// <summary>
     /// Sincroniza a lista de <see cref="SkillSlot"/> com as skills equipadas. Adiciona novas,
     /// remove as que saíram, re-liga a ref viva. Idempotente via hash — só trabalha se algo mudou.
@@ -67,8 +119,11 @@ public sealed class SkillDetector
         var actorSkills = actor?.ActorSkills;
         if (actorSkills == null) return;
 
+        // S1: o botão "Re-detetar Teclas" (force) invalida a cache → força o re-resolve do zero.
+        if (force) _cheapHash = int.MinValue;
+
         var shortcuts = _gc?.IngameState?.ShortcutSettings?.Shortcuts;
-        var equipped = ResolveEquipped(actorSkills);
+        var equipped = GetEquippedCached(actorSkills); // S1: reusa a cache se as skills cruas não mudaram.
 
         var hash = ComputeHash(equipped, shortcuts);
         if (!force && hash == _lastHash) { RelinkLive(slots, equipped); return; }
@@ -109,7 +164,8 @@ public sealed class SkillDetector
     /// <summary>Re-liga só a ref viva (rápido, todos os ticks) sem mexer na lista.</summary>
     public void RelinkLive(List<SkillSlot> slots, List<ActorSkill> equipped = null)
     {
-        equipped ??= ResolveEquipped(_gc?.Player?.GetComponent<Actor>()?.ActorSkills);
+        // S1: usa a cache (só re-resolve se as skills cruas mudaram) em vez de re-resolver a cada tick.
+        equipped ??= GetEquippedCached(_gc?.Player?.GetComponent<Actor>()?.ActorSkills);
         if (equipped == null) return;
 
         foreach (var slot in slots)
