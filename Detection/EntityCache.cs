@@ -42,8 +42,8 @@ public sealed class EntityCache
     private int _profSourceCount;
     /// <summary>Diagnóstico R1/R0 para o debug.</summary>
     public string RebuildProfileLine() =>
-        $"rebuildcache: rarity-cached={_rarityCache.Count} reciclagens={_recycleDetected} " +
-        $"| source={_profSourceCount} valid-us={_profValidUs} rarity-us={_profRarityUs}";
+        $"rebuildcache: source={_profSourceCount} valid-us={_profValidUs} (path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) " +
+        $"rarity-us={_profRarityUs} cached={_rarityCache.Count} recicl={_recycleDetected}";
 
     public EntityCache(GameController gameController)
     {
@@ -81,6 +81,7 @@ public sealed class EntityCache
 
         _seenThisTick.Clear();
         _profSourceCount = source.Count; _profValidUs = 0; _profRarityUs = 0;
+        ProfPathUs = 0; ProfStatsUs = 0; ProfBuffsUs = 0; // R0.2: reset das sub-medições do IsValidTarget.
         var _sw = System.Diagnostics.Stopwatch.StartNew();
         foreach (var entity in source)
         {
@@ -199,30 +200,41 @@ public sealed class EntityCache
     /// a flag IsTargetable, e buffs de imunidade. Atacar um alvo imune é desperdício de DPS.
     /// O <paramref name="distance"/> serve para o Proximal Tangibility (imune só à distância).
     /// </summary>
+    // R0.2 medição fina DENTRO do IsValidTarget: tempo (us) em Path vs Stats vs Buffs. Acumula por tick;
+    // o Rebuild faz reset no início e expõe na linha rebuildcache. Estático porque IsValidTarget é static.
+    internal static long ProfPathUs, ProfStatsUs, ProfBuffsUs;
+    private static readonly System.Diagnostics.Stopwatch _ivtSw = new();
+
     private static bool IsValidTarget(Entity entity, float distance)
     {
         if (entity == null) return false;
         if (!entity.IsValid || !entity.IsAlive || entity.IsDead) return false;
         if (!entity.IsTargetable || entity.IsHidden || !entity.IsHostile) return false;
 
+        _ivtSw.Restart();
         var path = entity.Path;
         if (path != null)
             foreach (var prefix in ExcludedPrefixes)
                 if (path.StartsWith(prefix, StringComparison.Ordinal))
-                    return false;
+                { ProfPathUs += _ivtSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency; return false; }
+        ProfPathUs += _ivtSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 
         // Stat de invulnerabilidade (a via principal). Stats pode ser null → assume danificável.
+        _ivtSw.Restart();
         var stats = entity.Stats;
-        if (stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1)
-            return false;
+        var blockedByStat = stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1;
+        ProfStatsUs += _ivtSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+        if (blockedByStat) return false;
 
         // PERF: lê o componente Buffs UMA SÓ VEZ e percorre a BuffsList UMA vez, verificando as duas
         // coisas (imunidade total + proximal intangibility) no mesmo varrimento. Antes liam-se os buffs
         // 2x por mob — num pack de 40+ mobs isso dobrava a leitura de memória mais cara, a cada tick
         // (causa provável do micro-stutter). O proximal só importa à distância.
+        _ivtSw.Restart();
         var checkProximal = distance > ProximalTangibilityRange;
-        if (BuffsBlockTarget(entity, checkProximal))
-            return false;
+        var blockedByBuff = BuffsBlockTarget(entity, checkProximal);
+        ProfBuffsUs += _ivtSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+        if (blockedByBuff) return false;
 
         return true;
     }
