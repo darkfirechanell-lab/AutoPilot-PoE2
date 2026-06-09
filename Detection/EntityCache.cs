@@ -47,12 +47,12 @@ public sealed class EntityCache
     private int _recycleDetected;
     // R0.2 — medição FINA: onde estão os us do Rebuild? Tempo (us) em IsValidTarget vs CachedRarity, e o
     // nº de mobs no SOURCE bruto (antes do filtro). Picos com poucos mobs = leitura patológica, não O(n).
-    private long _profValidUs, _profRarityUs;
+    private long _profValidUs, _profRarityUs, _profSourceUs;
     private int _profSourceCount;
     /// <summary>Diagnóstico R1/R0 para o debug.</summary>
     public string RebuildProfileLine() =>
-        $"rebuildcache: source={_profSourceCount} valid-us={_profValidUs} (path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) " +
-        $"buff-reads={_buffReads} buff-hits={_buffCacheHits} recicl={_recycleDetected}";
+        $"rebuildcache: source={_profSourceCount} src-us={_profSourceUs} valid-us={_profValidUs} (path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) " +
+        $"buff-reads={_buffReads} buff-hits={_buffCacheHits}";
 
     public EntityCache(GameController gameController)
     {
@@ -78,6 +78,7 @@ public sealed class EntityCache
         _playerGridPos = player.GridPos;
 
         List<Entity> source;
+        var _srcSw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             source = _gc.EntityListWrapper.ValidEntitiesByType[EntityType.Monster];
@@ -86,6 +87,7 @@ public sealed class EntityCache
         {
             return; // lista indisponível neste frame (transição de área, etc.)
         }
+        _profSourceUs = _srcSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
         if (source == null) return;
 
         _seenThisTick.Clear();
