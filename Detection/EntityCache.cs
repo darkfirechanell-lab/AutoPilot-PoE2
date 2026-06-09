@@ -36,9 +36,14 @@ public sealed class EntityCache
     // R1.0 — micro-medição: quantas vezes um id REAPAREEU com Address diferente (reciclagem detetada).
     // Se isto subir, a cache anti-reciclagem está a fazer o seu trabalho (e prova que era preciso).
     private int _recycleDetected;
-    /// <summary>Diagnóstico R1 para o debug.</summary>
+    // R0.2 — medição FINA: onde estão os us do Rebuild? Tempo (us) em IsValidTarget vs CachedRarity, e o
+    // nº de mobs no SOURCE bruto (antes do filtro). Picos com poucos mobs = leitura patológica, não O(n).
+    private long _profValidUs, _profRarityUs;
+    private int _profSourceCount;
+    /// <summary>Diagnóstico R1/R0 para o debug.</summary>
     public string RebuildProfileLine() =>
-        $"rebuildcache: rarity-cached={_rarityCache.Count} reciclagens={_recycleDetected}";
+        $"rebuildcache: rarity-cached={_rarityCache.Count} reciclagens={_recycleDetected} " +
+        $"| source={_profSourceCount} valid-us={_profValidUs} rarity-us={_profRarityUs}";
 
     public EntityCache(GameController gameController)
     {
@@ -75,17 +80,25 @@ public sealed class EntityCache
         if (source == null) return;
 
         _seenThisTick.Clear();
+        _profSourceCount = source.Count; _profValidUs = 0; _profRarityUs = 0;
+        var _sw = System.Diagnostics.Stopwatch.StartNew();
         foreach (var entity in source)
         {
             var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
-            if (!IsValidTarget(entity, dist)) continue;
+            _sw.Restart();
+            var valid = IsValidTarget(entity, dist);
+            _profValidUs += _sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+            if (!valid) continue;
 
             _seenThisTick.Add(entity.Id);
+            _sw.Restart();
+            var rarity = CachedRarity(entity);  // R1: reusa a Rarity cacheada.
+            _profRarityUs += _sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
             _monsters.Add(new TrackedEntity
             {
                 Entity = entity,
                 Distance = dist,
-                Rarity = CachedRarity(entity),  // R1: reusa a Rarity cacheada (não relê ObjectMagicProperties).
+                Rarity = rarity,
             });
         }
 
