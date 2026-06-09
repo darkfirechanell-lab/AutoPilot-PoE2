@@ -27,6 +27,19 @@ public sealed class EntityCache
     private readonly List<TrackedEntity> _monsters = new(128);
     private Vector2 _playerGridPos;
 
+    // R1 (REBUILD_PERF_PLANO): cache do IMUTÁVEL (Rarity) por id. A Rarity de um mob não muda enquanto
+    // está vivo, mas era relida (ObjectMagicProperties) a CADA tick. Chave = id; guarda também o Address
+    // como discriminador ANTI-RECICLAGEM (se o id reaparecer com Address diferente = mob NOVO → relê).
+    // Validado pela micro-medição R1.0 (contadores abaixo). Limpo de ids mortos a cada Rebuild.
+    private readonly Dictionary<uint, (MonsterRarity Rarity, long Address)> _rarityCache = new(128);
+    private readonly HashSet<uint> _seenThisTick = new(128);
+    // R1.0 — micro-medição: quantas vezes um id REAPAREEU com Address diferente (reciclagem detetada).
+    // Se isto subir, a cache anti-reciclagem está a fazer o seu trabalho (e prova que era preciso).
+    private int _recycleDetected;
+    /// <summary>Diagnóstico R1 para o debug.</summary>
+    public string RebuildProfileLine() =>
+        $"rebuildcache: rarity-cached={_rarityCache.Count} reciclagens={_recycleDetected}";
+
     public EntityCache(GameController gameController)
     {
         _gc = gameController;
@@ -61,18 +74,52 @@ public sealed class EntityCache
         }
         if (source == null) return;
 
+        _seenThisTick.Clear();
         foreach (var entity in source)
         {
             var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
             if (!IsValidTarget(entity, dist)) continue;
 
+            _seenThisTick.Add(entity.Id);
             _monsters.Add(new TrackedEntity
             {
                 Entity = entity,
                 Distance = dist,
-                Rarity = ReadRarity(entity),
+                Rarity = CachedRarity(entity),  // R1: reusa a Rarity cacheada (não relê ObjectMagicProperties).
             });
         }
+
+        // R1: limpa da cache os ids que já não estão no snapshot (mobs mortos/fora de alcance) — evita
+        // crescer sem fim e libertar a entrada para um id reciclado.
+        if (_rarityCache.Count > _seenThisTick.Count)
+        {
+            _staleIds.Clear();
+            foreach (var kv in _rarityCache) if (!_seenThisTick.Contains(kv.Key)) _staleIds.Add(kv.Key);
+            foreach (var id in _staleIds) _rarityCache.Remove(id);
+        }
+    }
+
+    private readonly List<uint> _staleIds = new(64);
+
+    /// <summary>
+    /// R1: Rarity cacheada por id, com discriminador Address (anti-reciclagem). Se o id é novo OU o mesmo
+    /// id reaparece com Address diferente (= outro mob reutilizou o id) → relê e atualiza a cache.
+    /// </summary>
+    private MonsterRarity CachedRarity(Entity entity)
+    {
+        var id = entity.Id;
+        long addr;
+        try { addr = (long)entity.Address; } catch { return ReadRarity(entity); }
+
+        if (_rarityCache.TryGetValue(id, out var cached))
+        {
+            if (cached.Address == addr) return cached.Rarity; // mesmo mob → reusa (sem leitura cara).
+            _recycleDetected++;                                // id reciclado por outro mob → relê.
+        }
+
+        var rarity = ReadRarity(entity);
+        _rarityCache[id] = (rarity, addr);
+        return rarity;
     }
 
     /// <summary>
