@@ -44,7 +44,8 @@ public static class IceShotPreset
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
-                CooldownMs = 14000, // uptime: re-lança ~1s antes dos 15s expirarem.
+                SkipIfTornadoActive = true,  // só re-lança quando NÃO há tornado vivo perto do alvo (deteção).
+                CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Combo frozen: Barrage → Snipe. Só em Rare+ e alvo FROZEN.

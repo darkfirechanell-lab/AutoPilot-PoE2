@@ -49,6 +49,13 @@ public sealed class SkillRule
     /// <summary>Uniques/bosses são sempre alvo válido mesmo além do alcance configurado.</summary>
     public bool IgnoreRangeForUnique { get; set; } = false;
 
+    /// <summary>
+    /// Específico do Tornado Shot: NÃO usar se já há um tornado vivo no chão perto do alvo (evita
+    /// re-lançar enquanto um está ativo — uptime sem spam). O plugin deteta o tornado pela entidade
+    /// MiscellaneousObjects e põe o resultado em <c>RoutineContext.TornadoNearTarget</c>. Default false.
+    /// </summary>
+    public bool SkipIfTornadoActive { get; set; } = false;
+
     /// <summary>Distância mínima ao alvo (grid). 0 = sem mínimo.</summary>
     public float MinDistance { get; set; } = 0f;
 

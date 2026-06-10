@@ -54,6 +54,10 @@ public static class RuleEvaluator
         if (ctx.TargetHardness < rule.MinHardness)
         { reason = $"dureza<{rule.MinHardness}"; return false; }
 
+        // Tornado Shot: não re-lançar se já há um tornado vivo perto do alvo (uptime sem spam).
+        if (rule.SkipIfTornadoActive && ctx.TornadoNearTarget)
+        { reason = "tornado já ativo"; return false; }
+
         // Distância (com isenção de Unique se configurada).
         var dist = ctx.Target.Distance;
         var isUnique = SafeRarity(target) == MonsterRarity.Unique;

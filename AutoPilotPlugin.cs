@@ -51,6 +51,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private StaffRoutine _staff;
     private GeneralRoutine _general;  // Fase 3: motor configurável (corre lado a lado, opt-in).
     private Combat.General.HardnessClassifier _hardness; // H1: classifica dureza do alvo (só loga p/ já).
+    private Combat.TornadoTracker _tornado;              // deteta o tornado no chão (entidade do mundo).
     private IRoutine _routine;        // a routine ativa (selecionada pelo dropdown)
     private string _lastRoutineName;  // para detetar mudança no dropdown e fazer Reset
     private RoutineContext _ctx;
@@ -128,6 +129,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _general = new GeneralRoutine();
         _general.SetRules(Combat.General.IceShotPreset.Build()); // Fase 3: por agora usa o preset de gelo.
         _hardness = new Combat.General.HardnessClassifier(_weights.Life); // H1: partilha o LifeCache (sem 2ª leitura).
+        _tornado = new Combat.TornadoTracker(GameController);
         _danger = new Combat.DangerDetector();
         _dodge = new Combat.DodgeController(_inputQueue);
         _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
@@ -367,10 +369,15 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             var areaLevel = SafeAreaLevel();
             _ctx.TargetHardness = _hardness.Classify(
                 _currentTarget.Entity, _currentTarget.Entity.Rarity, areaLevel, DateTime.UtcNow.Ticks);
+
+            // Tornado no chão PERTO do alvo (no teu range) — não em todo o mapa. O tornado é uma entidade
+            // do mundo (MiscellaneousObjects). A regra do Tornado não re-lança enquanto houver um aqui.
+            _ctx.TornadoNearTarget = _tornado.AnyNear(_currentTarget.Entity.GridPos, Settings.AttackRange.Value);
         }
         else
         {
             _ctx.TargetHardness = Combat.General.TargetHardness.Easy; // sem alvo: não filtra.
+            _ctx.TornadoNearTarget = false;
         }
 
         // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
@@ -422,7 +429,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
-                $"{_hardness.LastDebug}\n" +
+                $"{_hardness.LastDebug} | tornadoPerto={_ctx.TornadoNearTarget}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
