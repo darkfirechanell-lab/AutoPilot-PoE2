@@ -17,6 +17,24 @@ public class AutoPilotSettings : ISettings
 {
     public ToggleNode Enable { get; set; } = new(false);
 
+    // ── NO TOPO (sempre visíveis, fora de secção): as escolhas principais — teclas de aim + routine.
+    // Aim Key/Toggle usam o HotkeyNode ANTIGO de propósito (aceita botões do rato; o V2 bloqueia-os).
+#pragma warning disable CS0618
+    [Menu("Aim Key", "Tecla a manter premida para ativar o aim/combate. Aceita botões do rato (LB/RB/MB).")]
+    public HotkeyNode AimKey { get; set; } = new(Keys.None);
+
+    [Menu("Aim Toggle Key", "Tecla que liga/desliga o aim em modo toggle. Aceita botões do rato.")]
+    public HotkeyNode AimToggleKey { get; set; } = new(Keys.None);
+#pragma warning restore CS0618
+
+    [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = arco; 'Staff' = cajado; " +
+        "'Geral' = motor configurável pela UI (regras por skill em 'Skills').")]
+    public ListNode Routine { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
+        Value = "Ice Shot",
+    };
+
     // Ordem das secções escolhida pelo utilizador (literal). O ExileCore renderiza pela ordem de
     // declaração das propriedades.
 
@@ -60,13 +78,10 @@ public class AutoPilotSettings : ISettings
     public SkillsSettings SkillsSection { get; set; } = new();
 
     // Mostra os settings de cada routine SÓ quando essa routine está selecionada.
-    public bool IsIceShotRoutine() => Combat.Routine?.Value == "Ice Shot";
-    public bool IsStaffRoutine() => Combat.Routine?.Value == "Staff";
+    public bool IsIceShotRoutine() => Routine?.Value == "Ice Shot";
+    public bool IsStaffRoutine() => Routine?.Value == "Staff";
 
     // ── ATALHOS (escondidos do menu): o resto do código usa estes; apontam para o campo no submenu.
-#pragma warning disable CS0618 // HotkeyNode obsoleto, mas aceita botões do rato (ver AimSettings).
-    [IgnoreMenu, JsonIgnore] public HotkeyNode AimKey => Aim.AimKey;
-    [IgnoreMenu, JsonIgnore] public HotkeyNode AimToggleKey => Aim.AimToggleKey;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorJitter => Aim.CursorJitter;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> CursorSmoothing => Aim.CursorSmoothing;
     [IgnoreMenu, JsonIgnore] public ToggleNode UseVisibility => Aim.UseVisibility;
@@ -74,12 +89,12 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Combat.AttackRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Combat.ProximalRange;
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Combat.PauseOnPanels;
-    [IgnoreMenu, JsonIgnore] public ListNode Routine => Combat.Routine;
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Combat.GeneralUseUiRules;
     [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Combat.LoadIceShotPreset;
 
     [IgnoreMenu, JsonIgnore] public ToggleNode ModTargeting => Mods.ModTargeting;
     [IgnoreMenu, JsonIgnore] public ButtonNode DumpMods => Mods.DumpMods;
+#pragma warning disable CS0618 // HotkeyNode obsoleto, mas aceita botões do rato.
     [IgnoreMenu, JsonIgnore] public HotkeyNode DumpModsKey => Mods.DumpModsKey;
 #pragma warning restore CS0618
     [IgnoreMenu, JsonIgnore] public ToggleNode AutoDumpMods => Mods.AutoDumpMods;
@@ -96,15 +111,7 @@ public class AutoPilotSettings : ISettings
 [Submenu(CollapsedByDefault = true)]
 public class AimSettings
 {
-    // Aim Key/Toggle usam o HotkeyNode ANTIGO (não o V2) DE PROPÓSITO: o widget do V2 bloqueia os botões
-    // do rato (LB/RB) na atribuição manual; o antigo aceita-os (como o AutoMyAim).
-#pragma warning disable CS0618
-    [Menu("Aim Key", "Tecla a manter premida para ativar o aim/combate. Aceita botões do rato (LB/RB/MB).")]
-    public HotkeyNode AimKey { get; set; } = new(Keys.None);
-
-    [Menu("Aim Toggle Key", "Tecla que liga/desliga o aim em modo toggle. Aceita botões do rato.")]
-    public HotkeyNode AimToggleKey { get; set; } = new(Keys.None);
-#pragma warning restore CS0618
+    // (Aim Key / Aim Toggle Key foram movidas para o TOPO da raiz — são as escolhas principais.)
 
     [Menu("Filtrar por Visibilidade (raycast)", "Ignora mobs atrás de paredes. Se o aim não foca nada, DESLIGA isto para testar se é o raycast.")]
     public ToggleNode UseVisibility { get; set; } = new(true);
@@ -125,13 +132,7 @@ public class CombatSettings
     [Menu("Combate ativo", "Liga/desliga o uso de skills (o aim continua a funcionar).")]
     public ToggleNode Enabled { get; set; } = new(true);
 
-    [Menu("Rotina de combate", "Qual rotação de skills usar. 'Ice Shot' = build de arco; 'Staff' = " +
-        "build de cajado; 'Geral' = motor configurável pela UI (regras por skill em 'Skills').")]
-    public ListNode Routine { get; set; } = new()
-    {
-        Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
-        Value = "Ice Shot",
-    };
+    // (Rotina de combate foi movida para o TOPO da raiz — é uma escolha principal.)
 
     [Menu("Attack Range", "Distância máxima ao alvo (grid) para o mirar/atacar. Ajusta ao alcance real da arma.")]
     public RangeNode<float> AttackRange { get; set; } = new(60f, 5f, 600f);
