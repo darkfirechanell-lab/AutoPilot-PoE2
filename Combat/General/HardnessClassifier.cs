@@ -28,9 +28,35 @@ public sealed class HardnessClassifier
     // ── Config (sliders do utilizador; defaults provisórios afinados em teste) ──────────────
     public float LimiarTank { get; set; } = 2.5f;          // score >= isto → Tank
     public float LimiarMedium { get; set; } = 1.5f;        // score >= isto → Medium
-    public int MinAmostras { get; set; } = 8;              // < isto numa área → cold-start (mediana sintética)
-    public float PoolRareReferencia { get; set; } = 50000f; // cold-start: pool (HP+ES) de um Rare TÍPICO da tua zona
+    public int MinAmostras { get; set; } = 8;              // < isto numa área → cold-start (estimativa por nível)
+    public float ColdStartFactor { get; set; } = 1.0f;     // ajuste à estimativa (cobre juice/ES que a fórmula não vê)
     public float AjusteModPorMatch { get; set; } = 0.5f;   // +score por mod "chato" que o alvo tenha
+
+    // Vida-BASE de monstro por nível de área (PoE2, fonte poe2db.tw). Pontos-âncora; interpola linear
+    // entre eles. A pool de um RARE típico ≈ baseLife(nível) × 8 (Rare = +700% de vida). Valida com o
+    // log: Rare nível 80 ≈ 31065×8 = 248k vs ~291k medido (resto = mods/ES, coberto por ColdStartFactor).
+    private static readonly int[] _lvlAnchors  = {  1,  10,  20,   50,    60,    65,    68,    70,    75,    80,    85,    90,    95,   100 };
+    private static readonly float[] _baseLife  = { 15,  67, 249, 2556,  4834,  6555,  8257, 11148, 18609, 31065, 36012, 41748, 48398, 56106 };
+    private const float RareLifeMult = 8.0f;   // Rare = +700% vida final (poe2db).
+
+    /// <summary>Vida-base de monstro no nível dado (interpolação linear entre âncoras). Clampa nos extremos.</summary>
+    private static float BaseLifeAt(int level)
+    {
+        if (level <= _lvlAnchors[0]) return _baseLife[0];
+        var last = _lvlAnchors.Length - 1;
+        if (level >= _lvlAnchors[last]) return _baseLife[last];
+        for (var i = 1; i <= last; i++)
+        {
+            if (level > _lvlAnchors[i]) continue;
+            var lo = _lvlAnchors[i - 1]; var hi = _lvlAnchors[i];
+            var t = (float)(level - lo) / (hi - lo);
+            return _baseLife[i - 1] + t * (_baseLife[i] - _baseLife[i - 1]);
+        }
+        return _baseLife[last];
+    }
+
+    /// <summary>Estimativa da pool de um Rare TÍPICO no nível de área (cold-start, adaptativa por tier).</summary>
+    private float EstimateRarePool(int areaLevel) => BaseLifeAt(areaLevel) * RareLifeMult * ColdStartFactor;
 
     // Mods que tornam um mob mais chato de matar (somam ao score). Nomes internos confirmados no dump M0.
     private static readonly System.Text.RegularExpressions.Regex AnnoyingMods =
@@ -105,8 +131,8 @@ public sealed class HardnessClassifier
         if (coldStart && rarity == MonsterRarity.Magic && level == TargetHardness.Tank)
             level = TargetHardness.Medium;
 
-        LastDebug = $"dureza: {rarity} hp={maxHp:F0} es={maxEs:F0} pool={pool:F0} " +
-                    $"med={median:F0}{(coldStart ? "(sint)" : "")} score={score:F2} adj={modAdj:F1} → {level} " +
+        LastDebug = $"dureza: {rarity} alvl={areaLevel} hp={maxHp:F0} es={maxEs:F0} pool={pool:F0} " +
+                    $"med={median:F0}{(coldStart ? "(estimativa)" : "(real)")} score={score:F2} adj={modAdj:F1} → {level} " +
                     $"[T>={LimiarTank} M>={LimiarMedium} amostra={AreaCount(areaLevel)}{(sampled ? " +amostrei" : "")}]";
         return level;
     }
@@ -126,9 +152,11 @@ public sealed class HardnessClassifier
 
     private float MedianFor(int areaLevel, bool coldStart, long nowTicks)
     {
-        // Cold-start: mediana SINTÉTICA = pool de referência de um Rare típico (mesma unidade da real →
-        // um só par de limiares). Agnóstico à build (#13 + autopilot-must-be-build-agnostic).
-        if (coldStart) return PoolRareReferencia;
+        // Cold-start: estimativa por NÍVEL DE ÁREA (adapta-se ao tier sozinha, sem slider fixo). Mesma
+        // unidade da mediana real → um só par de limiares. Agnóstica à build (mede vida, não a skill).
+        // #13 + autopilot-must-be-build-agnostic. Assim que a área tiver MinAmostras Rares, a mediana
+        // REAL toma conta (e essa já acumula por area level, #12).
+        if (coldStart) return EstimateRarePool(areaLevel);
 
         var s = _byArea[areaLevel]; // existe (coldStart=false ⇒ Count>=MinAmostras)
         if (!s.Dirty && (nowTicks - s.MedianAtTicks) / TimeSpan.TicksPerMillisecond <= MedianTtlMs)

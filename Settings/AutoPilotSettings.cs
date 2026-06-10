@@ -323,10 +323,11 @@ public class HardnessSettings
         "Abaixo disto usa a mediana SINTÉTICA (sliders abaixo). Mais = baseline mais fiável, arranque mais lento.")]
     public RangeNode<int> MinAmostras { get; set; } = new(8, 1, 30);
 
-    [Menu("Cold-start: pool de um Rare típico", "ARRANQUE (antes de haver Rares amostrados na zona): a vida " +
-        "efetiva (HP+ES) de um Rare TÍPICO da tua zona. Serve de referência até a mediana real encher. " +
-        "Vê o valor 'pool=' de um Rare normal no debug log e mete ~isso. Agnóstico à build (qualquer skill).")]
-    public RangeNode<float> PoolRareReferencia { get; set; } = new(50000f, 100f, 2000000f);
+    [Menu("Cold-start: ajuste da estimativa", "ARRANQUE (antes de haver Rares amostrados): a vida típica é " +
+        "ESTIMADA pelo NÍVEL DA ÁREA (fórmula PoE2: vida-base × 8 do Rare). Adapta-se ao tier sozinha. " +
+        "Este fator multiplica a estimativa para cobrir o juice/ES da TUA zona (1.0 = fórmula pura; sobe se " +
+        "os teus mapas são mais 'gordos' que o normal). Compara 'pool=' com 'med=' no log e afina.")]
+    public RangeNode<float> ColdStartFactor { get; set; } = new(1.0f, 0.3f, 4f);
 
     [Menu("Ajuste por mod chato", "Quanto SOMA ao score se o alvo tem um mod que o torna mais duro de matar " +
         "(regenera, revive, reduz dano). Empurra-o para um nível acima sem mudar a vida.")]

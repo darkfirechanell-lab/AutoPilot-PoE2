@@ -876,7 +876,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _hardness.LimiarTank = Settings.Dureza.LimiarTank.Value;
         _hardness.LimiarMedium = Settings.Dureza.LimiarMedium.Value;
         _hardness.MinAmostras = Settings.Dureza.MinAmostras.Value;
-        _hardness.PoolRareReferencia = Settings.Dureza.PoolRareReferencia.Value;
+        _hardness.ColdStartFactor = Settings.Dureza.ColdStartFactor.Value;
         _hardness.AjusteModPorMatch = Settings.Dureza.AjusteModPorMatch.Value;
     }
 
