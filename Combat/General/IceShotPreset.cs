@@ -48,14 +48,17 @@ public static class IceShotPreset
                 CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Combo frozen: Barrage → Snipe. Só em Rare+ e alvo FROZEN.
+            // Barrage: a partir de MEDIUM, SEM exigir frozen (regra do user: Rare/Medium leva Barrage
+            // sempre que entra no range; o frozen é só para o Snipe no Tank). Rare/Easy NÃO leva Barrage.
             new()
             {
                 SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
-                TargetHasBuff = FROZEN, CooldownMs = 1540,
+                CooldownMs = 1540,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
             },
+            // Snipe: só no TANK (ou boss) e SÓ quando o alvo está FROZEN — é o burst do combo congelado
+            // (Barrage → Snipe). Entra durante o empower do Barrage (AfterSkill + delay).
             new()
             {
                 SkillName = SNIPE, UseType = SkillUseType.Hold, Priority = 80,
