@@ -48,14 +48,15 @@ public static class IceShotPreset
                 CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Barrage: a partir de MEDIUM, SEM exigir frozen (regra do user: Rare/Medium leva Barrage
-            // sempre que entra no range; o frozen é só para o Snipe no Tank). Rare/Easy NÃO leva Barrage.
+            // Barrage (PoE2): NÃO é channel — é um TAP (cast ~0.7s) que aplica um BUFF DE EMPOWER em ti
+            // ("readies a volley": o próximo ataque de arco repete +2x +1/frenzy). Segurar a tecla
+            // (Hold) CANCELAVA-O (n=0 no log). Tap simples. A partir de MEDIUM, SEM frozen (regra do
+            // user). O Snipe seguinte consome o empower -> one-shot no boss.
             new()
             {
-                SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
+                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
-                CooldownMs = 1540,
-                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
+                CooldownMs = 800, // cast ~0.7s; evita re-tocar antes de a volley sair.
             },
             // Snipe: só no TANK (ou boss) e SÓ quando o alvo está FROZEN — é o burst do combo congelado
             // (Barrage → Snipe). Entra durante o empower do Barrage (AfterSkill + delay).
