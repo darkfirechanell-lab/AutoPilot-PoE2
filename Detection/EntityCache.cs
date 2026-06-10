@@ -47,12 +47,14 @@ public sealed class EntityCache
     private int _recycleDetected;
     // R0.2 — medição FINA: onde estão os us do Rebuild? Tempo (us) em IsValidTarget vs CachedRarity, e o
     // nº de mobs no SOURCE bruto (antes do filtro). Picos com poucos mobs = leitura patológica, não O(n).
-    private long _profValidUs, _profRarityUs, _profSourceUs;
+    private long _profValidUs, _profRarityUs, _profSourceUs, _profTotalUs, _profCleanupUs;
     private int _profSourceCount;
+    private readonly System.Diagnostics.Stopwatch _totalSw = new();
     /// <summary>Diagnóstico R1/R0 para o debug.</summary>
     public string RebuildProfileLine() =>
-        $"rebuildcache: source={_profSourceCount} src-us={_profSourceUs} valid-us={_profValidUs} (path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) " +
-        $"buff-reads={_buffReads} buff-hits={_buffCacheHits}";
+        $"rebuildcache: TOTAL={_profTotalUs}us | source={_profSourceCount} src={_profSourceUs} valid={_profValidUs} " +
+        $"(path={ProfPathUs} stats={ProfStatsUs} buffs={ProfBuffsUs}) rarity={_profRarityUs} cleanup={_profCleanupUs} | " +
+        $"buff-hits={_buffCacheHits}/{_buffReads}";
 
     public EntityCache(GameController gameController)
     {
@@ -71,6 +73,7 @@ public sealed class EntityCache
     /// </summary>
     public void Rebuild()
     {
+        _totalSw.Restart();
         _monsters.Clear();
 
         var player = _gc?.Player;
@@ -114,6 +117,7 @@ public sealed class EntityCache
             });
         }
 
+        var _cleanSw = System.Diagnostics.Stopwatch.StartNew();
         // R1: limpa da cache os ids que já não estão no snapshot (mobs mortos/fora de alcance) — evita
         // crescer sem fim e libertar a entrada para um id reciclado.
         if (_rarityCache.Count > _seenThisTick.Count)
@@ -129,6 +133,8 @@ public sealed class EntityCache
             foreach (var kv in _buffCache) if (!_seenThisTick.Contains(kv.Key)) _staleIds.Add(kv.Key);
             foreach (var id in _staleIds) _buffCache.Remove(id);
         }
+        _profCleanupUs = _cleanSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+        _profTotalUs = _totalSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
     }
 
     private readonly List<uint> _staleIds = new(64);
