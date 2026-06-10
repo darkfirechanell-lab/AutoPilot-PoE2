@@ -32,11 +32,14 @@ public sealed class HardnessClassifier
     public float ColdStartFactor { get; set; } = 1.0f;     // ajuste à estimativa (cobre juice/ES que a fórmula não vê)
     public float AjusteModPorMatch { get; set; } = 0.5f;   // +score por mod "chato" que o alvo tenha
 
-    // Vida-BASE de monstro por nível de área (PoE2, fonte poe2db.tw). Pontos-âncora; interpola linear
-    // entre eles. A pool de um RARE típico ≈ baseLife(nível) × 8 (Rare = +700% de vida). Valida com o
-    // log: Rare nível 80 ≈ 31065×8 = 248k vs ~291k medido (resto = mods/ES, coberto por ColdStartFactor).
-    private static readonly int[] _lvlAnchors  = {  1,  10,  20,   50,    60,    65,    68,    70,    75,    80,    85,    90,    95,   100 };
-    private static readonly float[] _baseLife  = { 15,  67, 249, 2556,  4834,  6555,  8257, 11148, 18609, 31065, 36012, 41748, 48398, 56106 };
+    // Vida-BASE de monstro por nível de área (PoE2, fonte poe2db.tw). Pontos-âncora; interpola linear.
+    // A pool de um RARE típico ≈ baseLife(nível) × 8 (Rare = +700% vida). Validado: nível 80 ≈ 31065×8
+    // = 248k vs ~291k medido (resto = mods/ES, coberto por ColdStartFactor).
+    // LIMITE (auditoria vuln. 2): a curva do poe2db é IRREGULAR nos níveis 68-78 (mistura de fontes), por
+    // isso a estimativa aí pode errar ~30%. Foco no ENDGAME (≥80), onde a curva é suave e onde se joga; e
+    // a mediana REAL corrige assim que há amostras. NÃO confiar na estimativa como precisa abaixo de ~80.
+    private static readonly int[] _lvlAnchors  = {  60,    70,    80,    82,    84,    90,    95,   100 };
+    private static readonly float[] _baseLife  = { 4834, 11148, 31065, 32956, 34963, 41748, 48398, 56106 };
     private const float RareLifeMult = 8.0f;   // Rare = +700% vida final (poe2db).
 
     /// <summary>Vida-base de monstro no nível dado (interpolação linear entre âncoras). Clampa nos extremos.</summary>
@@ -86,7 +89,14 @@ public sealed class HardnessClassifier
     }
 
     private readonly Dictionary<int, Sample> _byArea = new();   // areaLevel → amostra
-    private readonly HashSet<uint> _sampledIds = new();         // dedup: cada mob entra na amostra 1×
+    private readonly HashSet<long> _sampledKeys = new();        // dedup por (areaLevel,id): cada mob entra 1×
+
+    // LATCH (decisão #11): classifica um alvo 1× e CONGELA o nível enquanto for o mesmo id. Evita o salto
+    // de nível na transição cold-start→real (e o "Snipe a meio do canal"), e corta o hot-path (não
+    // recalcula pool/mediana/score/regex 60×/seg para o mesmo Rare). Limpo quando o alvo muda/morre.
+    private uint _latchedId;
+    private TargetHardness _latchedLevel;
+    private bool _hasLatch;
 
     // Diagnóstico do último alvo classificado (para o log de H1).
     public string LastDebug { get; private set; } = "";
@@ -99,26 +109,37 @@ public sealed class HardnessClassifier
     /// </summary>
     public TargetHardness Classify(Entity entity, MonsterRarity rarity, int areaLevel, long nowTicks)
     {
-        if (entity == null) { LastDebug = "dureza: sem alvo"; return TargetHardness.Easy; }
+        if (entity == null) { _hasLatch = false; LastDebug = "dureza: sem alvo"; return TargetHardness.Easy; }
 
-        // White morre logo: Easy sem medir (performance, #6). Unique = combo sempre (Tank, #7).
-        if (rarity == MonsterRarity.White) { LastDebug = "dureza: White→Easy"; return TargetHardness.Easy; }
-        if (rarity == MonsterRarity.Unique) { LastDebug = "dureza: Unique→Tank"; return TargetHardness.Tank; }
+        // White morre logo: Easy sem medir (performance, #6). Unique = combo sempre (Tank, #7). Estes não
+        // precisam de latch (são constantes), mas atualizam o id para o latch seguinte ser coerente.
+        if (rarity == MonsterRarity.White) { _hasLatch = false; LastDebug = "dureza: White→Easy"; return TargetHardness.Easy; }
+        if (rarity == MonsterRarity.Unique) { _hasLatch = false; LastDebug = "dureza: Unique→Tank"; return TargetHardness.Tank; }
+
+        // LATCH: mesmo id já classificado? Devolve o nível CONGELADO (não recalcula nada — sem salto, sem
+        // regex/mediana no hot-path). A amostragem do mob já aconteceu no 1º contacto, não se repete.
+        if (_hasLatch && entity.Id == _latchedId)
+        {
+            LastDebug = $"dureza: {rarity} alvl={areaLevel} → {_latchedLevel} (latch id={_latchedId})";
+            return _latchedLevel;
+        }
 
         if (!_life.TryGetPool(entity, nowTicks, out var pool, out var maxHp, out var maxEs))
-        { LastDebug = "dureza: pool ilegível→Easy"; return TargetHardness.Easy; }
+        { _hasLatch = false; LastDebug = "dureza: pool ilegível→Easy"; return TargetHardness.Easy; }
 
-        // Alimenta a amostra (só Rares, 1× por id, sem mods de inflação). #11/#14 + dedup da auditoria.
+        // Alimenta a amostra (só Rares, 1× por (área,id), sem mods de inflação). #11/#14. Chave composta
+        // (areaLevel,id) alinha o dedup com a baseline (que acumula por área) — um id reusado noutra área
+        // não bloqueia, e o mesmo mob não reentra. (Corrige a vuln. 3 da auditoria.)
         var coldStart = AreaCount(areaLevel) < MinAmostras;
         var sampled = false;
-        if (rarity == MonsterRarity.Rare && _sampledIds.Add(entity.Id))
+        if (rarity == MonsterRarity.Rare && _sampledKeys.Add(DedupKey(areaLevel, entity.Id)))
         {
             if (HasInflation(entity)) { /* excluído da mediana (#14) */ }
             else { Insert(areaLevel, pool, nowTicks); sampled = true; }
         }
 
         var median = MedianFor(areaLevel, coldStart, nowTicks);
-        if (median <= 0f) { LastDebug = "dureza: mediana 0→Easy"; return TargetHardness.Easy; }
+        if (median <= 0f) { _hasLatch = false; LastDebug = "dureza: mediana 0→Easy"; return TargetHardness.Easy; }
 
         var modAdj = HasAnnoying(entity) ? AjusteModPorMatch : 0f;
         var score = pool / median + modAdj;
@@ -131,6 +152,11 @@ public sealed class HardnessClassifier
         if (coldStart && rarity == MonsterRarity.Magic && level == TargetHardness.Tank)
             level = TargetHardness.Medium;
 
+        // CONGELA o nível para este id: enquanto for o alvo, não reavalia (estável + barato).
+        _latchedId = entity.Id;
+        _latchedLevel = level;
+        _hasLatch = true;
+
         LastDebug = $"dureza: {rarity} alvl={areaLevel} hp={maxHp:F0} es={maxEs:F0} pool={pool:F0} " +
                     $"med={median:F0}{(coldStart ? "(estimativa)" : "(real)")} score={score:F2} adj={modAdj:F1} → {level} " +
                     $"[T>={LimiarTank} M>={LimiarMedium} amostra={AreaCount(areaLevel)}{(sampled ? " +amostrei" : "")}]";
@@ -140,6 +166,9 @@ public sealed class HardnessClassifier
     // ── Amostra / mediana ──────────────────────────────────────────────────────────────────
 
     private int AreaCount(int areaLevel) => _byArea.TryGetValue(areaLevel, out var s) ? s.Count : 0;
+
+    /// <summary>Chave de dedup composta (areaLevel, id) — alinha o dedup com a baseline por área.</summary>
+    private static long DedupKey(int areaLevel, uint id) => ((long)areaLevel << 32) | id;
 
     private void Insert(int areaLevel, float pool, long nowTicks)
     {
@@ -177,17 +206,20 @@ public sealed class HardnessClassifier
     private static bool HasAnnoying(Entity e) => Combat.ModReader.HasModMatching(e, AnnoyingMods);
 
     /// <summary>
-    /// Mudança de ÁREA: limpa só o dedup de ids (os ids reciclam entre instâncias, e um id reusado não
-    /// deve bloquear a amostragem do novo mob). A baseline por área (<see cref="_byArea"/>) MANTÉM-SE —
-    /// acumula por area level na sessão (#12): um corredor de T15 herda o que aprendeu de T15 anteriores.
+    /// Mudança de ÁREA: solta o latch (o alvo da área anterior morreu). A baseline por área
+    /// (<see cref="_byArea"/>) e o dedup (<see cref="_sampledKeys"/>, chave composta por área) MANTÊM-SE —
+    /// acumulam por area level na sessão (#12): um corredor de T15 herda o que aprendeu de T15 anteriores.
+    /// Como a chave de dedup inclui o areaLevel, ids reusados noutra instância do mesmo nível não colidem
+    /// com a amostragem (corrige a vuln. 3 sem perder a acumulação).
     /// </summary>
-    public void OnAreaChange() => _sampledIds.Clear();
+    public void OnAreaChange() => _hasLatch = false;
 
-    /// <summary>Reset TOTAL (fim de sessão/plugin desligado): limpa amostra E dedup.</summary>
+    /// <summary>Reset TOTAL (fim de sessão/plugin desligado): limpa amostra, dedup e latch.</summary>
     public void Reset()
     {
         _byArea.Clear();
-        _sampledIds.Clear();
+        _sampledKeys.Clear();
+        _hasLatch = false;
         LastDebug = "";
     }
 }
