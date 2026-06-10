@@ -17,40 +17,44 @@ public class AutoPilotSettings : ISettings
 {
     public ToggleNode Enable { get; set; } = new(false);
 
-    // ── SECÇÃO AIM (no topo) ──────────────────────────────────────────────────────────────
-    [Submenu(CollapsedByDefault = true)]
-    public AimSettings Aim { get; set; } = new();
+    // Ordem das secções escolhida pelo utilizador (literal). O ExileCore renderiza pela ordem de
+    // declaração das propriedades.
 
-    // ── SECÇÃO COMBATE ────────────────────────────────────────────────────────────────────
-    [Submenu(CollapsedByDefault = true)]
-    public CombatSettings Combat { get; set; } = new();
-
-    // ── SECÇÃO KITING (dodge) ─────────────────────────────────────────────────────────────
-    [Submenu(CollapsedByDefault = true)]
-    public KitingSettings Kiting { get; set; } = new();
-
-    // ── SECÇÃO MODS ───────────────────────────────────────────────────────────────────────
-    [Submenu(CollapsedByDefault = true)]
-    public ModsSettings Mods { get; set; } = new();
-
-    // ── SECÇÃO LOGS ───────────────────────────────────────────────────────────────────────
+    // 1 ── LOGS
     [Submenu(CollapsedByDefault = true)]
     public LogsSettings Logs { get; set; } = new();
 
-    // ── SECÇÃO PERFIL — ImGui custom (estilo PickIt): [JsonIgnore] na propriedade, RenderMethod na classe.
+    // 2 ── PERFIL — ImGui custom (estilo PickIt): [JsonIgnore] na propriedade, RenderMethod na classe.
     [JsonIgnore]
     public ProfileSettings Perfil { get; set; } = new();
 
-    // ── SECÇÕES de routine (só aparecem com a routine selecionada no dropdown de Combate) ──
-    [ConditionalDisplay(nameof(IsIceShotRoutine))]
-    [Submenu(CollapsedByDefault = true)]
-    public IceShotSettings IceShot { get; set; } = new();
-
+    // 3 ── STAFF (condicional: routine Staff)
     [ConditionalDisplay(nameof(IsStaffRoutine))]
     [Submenu(CollapsedByDefault = true)]
     public StaffSettings Staff { get; set; } = new();
 
-    // ── SECÇÃO SKILLS (com o botão Re-detetar Teclas lá dentro) ───────────────────────────
+    // 4 ── MODS
+    [Submenu(CollapsedByDefault = true)]
+    public ModsSettings Mods { get; set; } = new();
+
+    // 5 ── AIM
+    [Submenu(CollapsedByDefault = true)]
+    public AimSettings Aim { get; set; } = new();
+
+    // 6 ── KITING (dodge)
+    [Submenu(CollapsedByDefault = true)]
+    public KitingSettings Kiting { get; set; } = new();
+
+    // 7 ── ICE SHOT (condicional: routine Ice Shot)
+    [ConditionalDisplay(nameof(IsIceShotRoutine))]
+    [Submenu(CollapsedByDefault = true)]
+    public IceShotSettings IceShot { get; set; } = new();
+
+    // 8 ── COMBATE
+    [Submenu(CollapsedByDefault = true)]
+    public CombatSettings Combat { get; set; } = new();
+
+    // 9 ── SKILLS (com o botão Re-detetar Teclas lá dentro)
     [Menu("Skills")]
     [Submenu(CollapsedByDefault = true)]
     public SkillsSettings SkillsSection { get; set; } = new();
