@@ -29,8 +29,7 @@ public sealed class HardnessClassifier
     public float LimiarTank { get; set; } = 2.5f;          // score >= isto → Tank
     public float LimiarMedium { get; set; } = 1.5f;        // score >= isto → Medium
     public int MinAmostras { get; set; } = 8;              // < isto numa área → cold-start (mediana sintética)
-    public float DanoPorIceShot { get; set; } = 800f;      // mediana sintética = isto × TirosNumRareMediano
-    public float TirosNumRareMediano { get; set; } = 12f;
+    public float PoolRareReferencia { get; set; } = 50000f; // cold-start: pool (HP+ES) de um Rare TÍPICO da tua zona
     public float AjusteModPorMatch { get; set; } = 0.5f;   // +score por mod "chato" que o alvo tenha
 
     // Mods que tornam um mob mais chato de matar (somam ao score). Nomes internos confirmados no dump M0.
@@ -127,8 +126,9 @@ public sealed class HardnessClassifier
 
     private float MedianFor(int areaLevel, bool coldStart, long nowTicks)
     {
-        // Cold-start: mediana SINTÉTICA (mesma unidade da real → um só par de limiares). #13.
-        if (coldStart) return DanoPorIceShot * TirosNumRareMediano;
+        // Cold-start: mediana SINTÉTICA = pool de referência de um Rare típico (mesma unidade da real →
+        // um só par de limiares). Agnóstico à build (#13 + autopilot-must-be-build-agnostic).
+        if (coldStart) return PoolRareReferencia;
 
         var s = _byArea[areaLevel]; // existe (coldStart=false ⇒ Count>=MinAmostras)
         if (!s.Dirty && (nowTicks - s.MedianAtTicks) / TimeSpan.TicksPerMillisecond <= MedianTtlMs)
