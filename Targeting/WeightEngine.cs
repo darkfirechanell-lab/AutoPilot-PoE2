@@ -29,8 +29,9 @@ public sealed class WeightEngine
     public float RarityRare { get; set; } = 3.0f;
     public float RarityUnique { get; set; } = 4.0f;
 
-    private const long LifeCacheTtlMs = 500;
-    private readonly Dictionary<uint, (Life Life, long ReadAtTicks)> _lifeCache = new();
+    // Cache de Life PARTILHADA (injetada): o classificador de dureza lê o MESMO objeto, sem 2ª leitura.
+    // Se ninguém injetar uma, cria a sua (retrocompatível com testes que usam o WeightEngine isolado).
+    public LifeCache Life { get; set; } = new();
 
     // M2: regras de mod que ajustam o peso de targeting (+ prioriza, − desprioriza). Vazio = ignora.
     // LIMITE (auditoria): o delta total é clampado a ±MaxModDelta para NÃO dominar boss>rare>lixo —
@@ -45,7 +46,7 @@ public sealed class WeightEngine
     public void Apply(IReadOnlyList<TrackedEntity> monsters, in ModeProfile profile)
     {
         var now = DateTime.UtcNow.Ticks;
-        PruneCache(monsters, now);
+        Life.Prune(monsters, now);
 
         foreach (var m in monsters)
         {
@@ -60,7 +61,7 @@ public sealed class WeightEngine
 
             weight += RarityBase(m.Rarity) * profile.RarityMultiplier * distanceFactor;
 
-            var hp = ReadHpFraction(m.Entity, now);
+            var hp = Life.HpFraction(m.Entity, now);
             if (hp >= 0f)
             {
                 var hpScore = PreferLowerHp ? 1f - hp : hp;
@@ -98,41 +99,5 @@ public sealed class WeightEngine
         _ => 0f,
     };
 
-    /// <summary>Fração de vida (0..1) incluindo ES, ou -1 se ilegível.</summary>
-    private float ReadHpFraction(Entity entity, long now)
-    {
-        var id = entity.Id;
-        if (!_lifeCache.TryGetValue(id, out var cached)
-            || (now - cached.ReadAtTicks) / TimeSpan.TicksPerMillisecond > LifeCacheTtlMs)
-        {
-            Life life = null;
-            try { life = entity.GetComponent<Life>(); } catch { }
-            cached = (life, now);
-            _lifeCache[id] = cached;
-        }
-
-        var l = cached.Life;
-        if (l == null) return -1f;
-        try { return l.HPPercentage + l.ESPercentage; }
-        catch { return -1f; }
-    }
-
-    private void PruneCache(IReadOnlyList<TrackedEntity> monsters, long now)
-    {
-        if (_lifeCache.Count == 0) return;
-
-        // Remove entradas de entidades que já não estão no snapshot (mortas/fora de alcance).
-        var alive = new HashSet<uint>();
-        foreach (var m in monsters) alive.Add(m.Entity.Id);
-
-        List<uint> stale = null;
-        foreach (var kv in _lifeCache)
-            if (!alive.Contains(kv.Key))
-                (stale ??= new List<uint>()).Add(kv.Key);
-
-        if (stale == null) return;
-        foreach (var id in stale) _lifeCache.Remove(id);
-    }
-
-    public void Clear() => _lifeCache.Clear();
+    public void Clear() => Life.Clear();
 }

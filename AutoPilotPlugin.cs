@@ -50,6 +50,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private IceShotRoutine _iceShot;
     private StaffRoutine _staff;
     private GeneralRoutine _general;  // Fase 3: motor configurável (corre lado a lado, opt-in).
+    private Combat.General.HardnessClassifier _hardness; // H1: classifica dureza do alvo (só loga p/ já).
     private IRoutine _routine;        // a routine ativa (selecionada pelo dropdown)
     private string _lastRoutineName;  // para detetar mudança no dropdown e fazer Reset
     private RoutineContext _ctx;
@@ -126,6 +127,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _staff = new StaffRoutine();
         _general = new GeneralRoutine();
         _general.SetRules(Combat.General.IceShotPreset.Build()); // Fase 3: por agora usa o preset de gelo.
+        _hardness = new Combat.General.HardnessClassifier(_weights.Life); // H1: partilha o LifeCache (sem 2ª leitura).
         _danger = new Combat.DangerDetector();
         _dodge = new Combat.DodgeController(_inputQueue);
         _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
@@ -357,6 +359,14 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} path={SafePath(_currentTarget.Entity)} | {_targets.DiagTargetPick}");
         }
 
+        // H1: classifica a DUREZA do alvo (1x/tick, só o alvo atual — não os 40 mobs). SÓ LOGA; ainda
+        // não age (o gate por skill entra em H4). area level lido 1x aqui. Reusa o LifeCache partilhado.
+        if (_currentTarget?.Entity != null)
+        {
+            var areaLevel = SafeAreaLevel();
+            _hardness.Classify(_currentTarget.Entity, _currentTarget.Entity.Rarity, areaLevel, DateTime.UtcNow.Ticks);
+        }
+
         // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
         var iceShotActive = Settings.Routine?.Value == "Ice Shot";
         _baseline.Enabled = Settings.RecordBaseline.Value && iceShotActive;
@@ -406,6 +416,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
+                $"{_hardness.LastDebug}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
@@ -464,6 +475,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private static string SafePath(ExileCore2.PoEMemory.MemoryObjects.Entity e)
     {
         try { return e?.Path ?? "?"; } catch { return "?"; }
+    }
+
+    /// <summary>Nível da área atual (int), defensivo. 0 se ilegível. Usado pela classificação de dureza (H1).</summary>
+    private int SafeAreaLevel()
+    {
+        try { return GameController.Game.IngameState.Data.CurrentAreaLevel; } catch { return 0; }
     }
 
     /// <summary>
@@ -590,6 +607,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _rays?.UpdateArea();
         _targets?.Reset();
         _aim?.Reset();
+        _hardness?.OnAreaChange(); // H1: limpa só o dedup de ids; a baseline por área acumula na sessão (#12).
         _currentTarget = null;
         TrySyncSkills(force: true);
     }
