@@ -33,6 +33,17 @@ public sealed class SkillSlot
     [Menu("Tecla", "Tecla a premir para esta skill. Auto-detetada da barra; podes mudar.")]
     public HotkeyNodeV2 Key { get; set; } = new(Keys.None);
 
+    // ── REGRA EXTRA (F2): uma 2ª regra para a MESMA skill, para momentos diferentes (ex.: Barrage em
+    // Medium sem frozen + Barrage no Tank/boss com frozen). Liga o toggle e aparece um 2º bloco LIMPO.
+    // O motor corre as 2 regras sem colidir (RuleId da F1). A tecla é partilhada (é a mesma skill).
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("Regra extra", "Ativa uma SEGUNDA regra para esta skill (momento diferente). Aparece um 2º bloco " +
+        "'[Regra 2]' com condições próprias. Ex.: Barrage normal (Medium) + Barrage no combo do boss (frozen).")]
+    public ToggleNode HasExtraRule { get; set; } = new(false);
+
+    /// <summary>Mostra os campos [Regra 2] só quando ShowConfig E HasExtraRule estão ligados.</summary>
+    public bool IsExtraVisible() => ShowConfig.Value && HasExtraRule.Value;
+
     // ── Regras (Routine Geral) — todos os campos da SkillRule expostos na UI (Fase 3.4) ───────
     // Estes só são usados pelo motor "Geral" (dropdown Rotina de combate). O IceShot/Staff ignoram-nos.
     // Prioridade e Tap Hold também ficam aqui (escondidos atrás de 'Mostrar config'): por defeito cada
@@ -78,6 +89,16 @@ public sealed class SkillSlot
     {
         Values = new System.Collections.Generic.List<string> { "Easy", "Medium", "Tank" },
         Value = "Easy",
+    };
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Dureza máxima do alvo", "Só usa contra alvos deste nível de dureza ou ABAIXO (teto). " +
+        "Tank = sem teto (default). Serve para regras 'só este nível': ex.: Barrage SÓ em Medium " +
+        "(mín=Medium, máx=Medium), separado da regra do Tank. Tem de ser >= dureza mínima.")]
+    public ListNode MaxHardness { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Easy", "Medium", "Tank" },
+        Value = "Tank",
     };
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
@@ -176,6 +197,65 @@ public sealed class SkillSlot
     [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Timeout do hold (ms)", "Tempo máximo a segurar antes de soltar à força (rede de segurança).")]
     public RangeNode<int> ReleaseTimeoutMs { get; set; } = new(500, 50, 3000);
+
+    // ── REGRA 2 (F2) — 2ª regra da MESMA skill, momento diferente. Só os campos que costumam MUDAR entre
+    // momentos (raridade, dureza, frozen, tipo, prioridade, cooldown, encadeamento). A tecla, o release e
+    // os restantes são partilhados com a regra 1. Visível só com 'Regra extra' ligado.
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Tipo de uso", "Tap = um toque; Hold = segura até confirmar; Buff = sem alvo.")]
+    public ListNode Extra_UseType { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Tap", "Hold", "Buff", "Persistent" },
+        Value = "Tap",
+    };
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Prioridade", "Ordem de avaliação. MAIOR = avaliada primeiro.")]
+    public RangeNode<int> Extra_Priority { get; set; } = new(0, 0, 100);
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Cooldown (ms)", "Cooldown interno desta 2ª regra (independente da regra 1).")]
+    public RangeNode<int> Extra_CooldownMs { get; set; } = new(0, 0, 10000);
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Raridade mínima do alvo", "Só usa contra esta raridade e acima.")]
+    public ListNode Extra_MinRarity { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Qualquer", "Magic+", "Rare+", "Só Unique", "Só Normal" },
+        Value = "Qualquer",
+    };
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Dureza mínima do alvo", "Só usa contra alvos deste nível ou ACIMA (Easy/Medium/Tank).")]
+    public ListNode Extra_MinHardness { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Easy", "Medium", "Tank" },
+        Value = "Easy",
+    };
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Dureza máxima do alvo", "Só usa contra alvos deste nível ou ABAIXO (teto). Tank = sem teto.")]
+    public ListNode Extra_MaxHardness { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Easy", "Medium", "Tank" },
+        Value = "Tank",
+    };
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Alvo TEM buff", "Buff/debuff que o ALVO tem de ter (ex.: frozen). Vazio = ignora.")]
+    public TextNode Extra_TargetHasBuff { get; set; } = new("");
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Alvo SEM buff", "Buff/debuff que o alvo NÃO pode ter. Vazio = ignora.")]
+    public TextNode Extra_TargetMissingBuff { get; set; } = new("");
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Depois da skill", "Nome de memória da skill-âncora: só dispara DEPOIS dela. Vazio = livre.")]
+    public TextNode Extra_AfterSkill { get; set; } = new("");
+
+    [ConditionalDisplay(nameof(IsExtraVisible))]
+    [Menu("[Regra 2] Atraso após âncora (ms)", "Tempo a esperar após a âncora antes de disparar.")]
+    public RangeNode<int> Extra_AfterSkillDelayMs { get; set; } = new(0, 0, 3000);
 
     // ── Identidade (persiste no JSON, mas NÃO é elemento de menu) ───────────────────────────
     // [IgnoreMenu]: o ExileCore varre as propriedades públicas para construir o menu e avisa

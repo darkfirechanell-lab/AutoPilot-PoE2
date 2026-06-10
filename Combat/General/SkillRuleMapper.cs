@@ -19,6 +19,7 @@ public static class SkillRuleMapper
         {
             if (s == null || !s.Enabled.Value || string.IsNullOrEmpty(s.Name)) continue;
 
+            // Regra 1 — a config principal do slot.
             rules.Add(new SkillRule
             {
                 SkillName = s.Name,
@@ -29,6 +30,7 @@ public static class SkillRuleMapper
 
                 MinRarity = ParseRarity(s.MinRarity.Value),
                 MinHardness = ParseHardness(s.MinHardness.Value),
+                MaxHardness = ParseHardness(s.MaxHardness.Value),
                 IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
                 MinDistance = s.MinDistance.Value,
                 MaxDistance = s.MaxDistance.Value,
@@ -56,6 +58,50 @@ public static class SkillRuleMapper
                 ReleaseAnimationStage = s.ReleaseAnimationStage.Value,
                 ReleaseTimeoutMs = s.ReleaseTimeoutMs.Value,
             });
+
+            // F2: Regra 2 — 2ª regra da mesma skill (momento diferente). Só os campos [Regra 2] mudam;
+            // o resto (release, distância, etc.) herda da regra 1 para não obrigar a reconfigurar tudo.
+            if (s.HasExtraRule.Value)
+            {
+                rules.Add(new SkillRule
+                {
+                    SkillName = s.Name,
+                    UseType = ParseUseType(s.Extra_UseType.Value),
+                    Priority = s.Extra_Priority.Value,
+                    CooldownMs = s.Extra_CooldownMs.Value,
+                    AttackInPlace = s.AttackInPlace.Value,
+
+                    MinRarity = ParseRarity(s.Extra_MinRarity.Value),
+                    MinHardness = ParseHardness(s.Extra_MinHardness.Value),
+                    MaxHardness = ParseHardness(s.Extra_MaxHardness.Value),
+                    IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
+                    MinDistance = s.MinDistance.Value,
+                    MaxDistance = s.MaxDistance.Value,
+                    TargetHpMinPercent = s.TargetHpMin.Value,
+                    TargetHpMaxPercent = s.TargetHpMax.Value,
+                    CloseTargets = s.CloseTargets.Value,
+                    CloseTargetsRange = s.CloseTargetsRange.Value,
+
+                    GroundEntityPath = s.GroundEntityPath.Value?.Trim() ?? "",
+                    SkipIfGroundActive = s.SkipIfGroundActive.Value,
+
+                    TargetHasBuff = s.Extra_TargetHasBuff.Value?.Trim() ?? "",
+                    TargetMissingBuff = s.Extra_TargetMissingBuff.Value?.Trim() ?? "",
+                    PlayerHasBuff = s.PlayerHasBuff.Value?.Trim() ?? "",
+                    PlayerMissingBuff = s.PlayerMissingBuff.Value?.Trim() ?? "",
+                    BossIgnoresPlayerMissingBuff = s.BossIgnoresPlayerMissingBuff.Value,
+                    ChargeBuff = s.ChargeBuff.Value?.Trim() ?? "",
+                    ChargeMin = s.ChargeMin.Value,
+
+                    AfterSkill = s.Extra_AfterSkill.Value?.Trim() ?? "",
+                    AfterSkillDelayMs = s.Extra_AfterSkillDelayMs.Value,
+
+                    ReleaseWhen = ParseRelease(s.ReleaseWhen.Value),
+                    ReleaseBuffName = s.ReleaseBuffName.Value?.Trim() ?? "",
+                    ReleaseAnimationStage = s.ReleaseAnimationStage.Value,
+                    ReleaseTimeoutMs = s.ReleaseTimeoutMs.Value,
+                });
+            }
         }
         return rules;
     }

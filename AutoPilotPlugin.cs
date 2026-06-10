@@ -796,7 +796,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             {
                 Name = s.Name, Enabled = s.Enabled.Value, Priority = s.Priority.Value, TapHoldMs = s.TapHoldMs.Value,
                 UseType = s.UseType.Value, CooldownMs = s.CooldownMs.Value, AttackInPlace = s.AttackInPlace.Value,
-                MinRarity = s.MinRarity.Value, MinHardness = s.MinHardness.Value,
+                MinRarity = s.MinRarity.Value, MinHardness = s.MinHardness.Value, MaxHardness = s.MaxHardness.Value,
                 IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
                 MinDistance = s.MinDistance.Value, MaxDistance = s.MaxDistance.Value,
                 TargetHpMin = s.TargetHpMin.Value, TargetHpMax = s.TargetHpMax.Value,
@@ -809,6 +809,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 AfterSkill = s.AfterSkill.Value, AfterSkillDelayMs = s.AfterSkillDelayMs.Value,
                 ReleaseWhen = s.ReleaseWhen.Value, ReleaseBuffName = s.ReleaseBuffName.Value,
                 ReleaseAnimationStage = s.ReleaseAnimationStage.Value, ReleaseTimeoutMs = s.ReleaseTimeoutMs.Value,
+                HasExtraRule = s.HasExtraRule.Value,
+                Extra_UseType = s.Extra_UseType.Value, Extra_Priority = s.Extra_Priority.Value,
+                Extra_CooldownMs = s.Extra_CooldownMs.Value, Extra_MinRarity = s.Extra_MinRarity.Value,
+                Extra_MinHardness = s.Extra_MinHardness.Value, Extra_MaxHardness = s.Extra_MaxHardness.Value,
+                Extra_TargetHasBuff = s.Extra_TargetHasBuff.Value, Extra_TargetMissingBuff = s.Extra_TargetMissingBuff.Value,
+                Extra_AfterSkill = s.Extra_AfterSkill.Value, Extra_AfterSkillDelayMs = s.Extra_AfterSkillDelayMs.Value,
             });
         }
         return d;
@@ -841,7 +847,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
             s.Enabled.Value = p.Enabled; s.Priority.Value = p.Priority; s.TapHoldMs.Value = p.TapHoldMs;
             s.UseType.Value = p.UseType; s.CooldownMs.Value = p.CooldownMs; s.AttackInPlace.Value = p.AttackInPlace;
-            s.MinRarity.Value = p.MinRarity; s.MinHardness.Value = p.MinHardness;
+            s.MinRarity.Value = p.MinRarity; s.MinHardness.Value = p.MinHardness; s.MaxHardness.Value = p.MaxHardness;
             s.IgnoreRangeForUnique.Value = p.IgnoreRangeForUnique;
             s.MinDistance.Value = p.MinDistance; s.MaxDistance.Value = p.MaxDistance;
             s.TargetHpMin.Value = p.TargetHpMin; s.TargetHpMax.Value = p.TargetHpMax;
@@ -854,6 +860,12 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             s.AfterSkill.Value = p.AfterSkill; s.AfterSkillDelayMs.Value = p.AfterSkillDelayMs;
             s.ReleaseWhen.Value = p.ReleaseWhen; s.ReleaseBuffName.Value = p.ReleaseBuffName;
             s.ReleaseAnimationStage.Value = p.ReleaseAnimationStage; s.ReleaseTimeoutMs.Value = p.ReleaseTimeoutMs;
+            s.HasExtraRule.Value = p.HasExtraRule;
+            s.Extra_UseType.Value = p.Extra_UseType; s.Extra_Priority.Value = p.Extra_Priority;
+            s.Extra_CooldownMs.Value = p.Extra_CooldownMs; s.Extra_MinRarity.Value = p.Extra_MinRarity;
+            s.Extra_MinHardness.Value = p.Extra_MinHardness; s.Extra_MaxHardness.Value = p.Extra_MaxHardness;
+            s.Extra_TargetHasBuff.Value = p.Extra_TargetHasBuff; s.Extra_TargetMissingBuff.Value = p.Extra_TargetMissingBuff;
+            s.Extra_AfterSkill.Value = p.Extra_AfterSkill; s.Extra_AfterSkillDelayMs.Value = p.Extra_AfterSkillDelayMs;
         }
     }
 

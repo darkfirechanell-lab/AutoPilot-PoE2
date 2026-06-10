@@ -155,6 +155,7 @@ public sealed class ProfileSkill
     public bool AttackInPlace { get; set; }
     public string MinRarity { get; set; } = "Qualquer";
     public string MinHardness { get; set; } = "Easy";
+    public string MaxHardness { get; set; } = "Tank";
     public bool IgnoreRangeForUnique { get; set; }
     public float MinDistance { get; set; }
     public float MaxDistance { get; set; }
@@ -177,4 +178,17 @@ public sealed class ProfileSkill
     public string ReleaseBuffName { get; set; } = "";
     public int ReleaseAnimationStage { get; set; }
     public int ReleaseTimeoutMs { get; set; } = 500;
+
+    // F2: regra extra (2ª regra da mesma skill).
+    public bool HasExtraRule { get; set; }
+    public string Extra_UseType { get; set; } = "Tap";
+    public int Extra_Priority { get; set; }
+    public int Extra_CooldownMs { get; set; }
+    public string Extra_MinRarity { get; set; } = "Qualquer";
+    public string Extra_MinHardness { get; set; } = "Easy";
+    public string Extra_MaxHardness { get; set; } = "Tank";
+    public string Extra_TargetHasBuff { get; set; } = "";
+    public string Extra_TargetMissingBuff { get; set; } = "";
+    public string Extra_AfterSkill { get; set; } = "";
+    public int Extra_AfterSkillDelayMs { get; set; }
 }

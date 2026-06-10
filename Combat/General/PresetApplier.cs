@@ -22,16 +22,28 @@ public static class PresetApplier
         {
             if (slot == null || string.IsNullOrEmpty(slot.Name)) continue;
 
-            // Encontra a regra do preset para este slot (1ª que bate o nome). Algumas builds têm 2
-            // regras para a mesma skill (ex.: Mark boss vs não-boss) — aqui aplicamos a de MAIOR
-            // prioridade ao slot (o motor usa o preset embutido para a 2ª variante; ver nota).
-            SkillRule best = null;
+            // Recolhe TODAS as regras do preset para esta skill (algumas têm 2: ex. Barrage Medium +
+            // Barrage Tank/frozen). Ordena por prioridade decrescente.
+            var forSkill = new List<SkillRule>();
             foreach (var r in preset)
-                if (r.SkillName == slot.Name && (best == null || r.Priority > best.Priority))
-                    best = r;
-            if (best == null) continue;
+                if (r.SkillName == slot.Name) forSkill.Add(r);
+            if (forSkill.Count == 0) continue;
+            forSkill.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 
-            WriteRuleToSlot(best, slot);
+            // Regra 1 = a de maior prioridade → config principal do slot.
+            WriteRuleToSlot(forSkill[0], slot);
+
+            // Regra 2 (se houver) → campos [Regra 2] + liga o toggle. F2: a UI passa a refletir as 2
+            // regras (antes a 2ª perdia-se). Regras 3+ (raras) ficam só no preset embutido por agora.
+            if (forSkill.Count >= 2)
+            {
+                WriteExtraRuleToSlot(forSkill[1], slot);
+                slot.HasExtraRule.Value = true;
+            }
+            else
+            {
+                slot.HasExtraRule.Value = false;
+            }
             applied++;
         }
         return applied;
@@ -58,12 +70,8 @@ public static class PresetApplier
             TargetRarity.NormalOnly => "Só Normal",
             _ => "Qualquer",
         };
-        s.MinHardness.Value = r.MinHardness switch
-        {
-            TargetHardness.Medium => "Medium",
-            TargetHardness.Tank => "Tank",
-            _ => "Easy",
-        };
+        s.MinHardness.Value = HardnessName(r.MinHardness);
+        s.MaxHardness.Value = HardnessName(r.MaxHardness);
         s.IgnoreRangeForUnique.Value = r.IgnoreRangeForUnique;
         s.MinDistance.Value = r.MinDistance;
         s.MaxDistance.Value = r.MaxDistance;
@@ -98,4 +106,43 @@ public static class PresetApplier
         s.ReleaseAnimationStage.Value = r.ReleaseAnimationStage;
         s.ReleaseTimeoutMs.Value = r.ReleaseTimeoutMs;
     }
+
+    private static string HardnessName(TargetHardness h) => h switch
+    {
+        TargetHardness.Medium => "Medium",
+        TargetHardness.Tank => "Tank",
+        _ => "Easy",
+    };
+
+    /// <summary>Escreve a 2ª regra de uma skill nos campos [Regra 2] do slot (F2).</summary>
+    private static void WriteExtraRuleToSlot(SkillRule r, SkillSlot s)
+    {
+        s.Extra_UseType.Value = UseTypeName(r.UseType);
+        s.Extra_Priority.Value = r.Priority;
+        s.Extra_CooldownMs.Value = r.CooldownMs;
+        s.Extra_MinRarity.Value = RarityName(r.MinRarity);
+        s.Extra_MinHardness.Value = HardnessName(r.MinHardness);
+        s.Extra_MaxHardness.Value = HardnessName(r.MaxHardness);
+        s.Extra_TargetHasBuff.Value = r.TargetHasBuff;
+        s.Extra_TargetMissingBuff.Value = r.TargetMissingBuff;
+        s.Extra_AfterSkill.Value = r.AfterSkill;
+        s.Extra_AfterSkillDelayMs.Value = r.AfterSkillDelayMs;
+    }
+
+    private static string UseTypeName(SkillUseType t) => t switch
+    {
+        SkillUseType.Hold => "Hold",
+        SkillUseType.Buff => "Buff",
+        SkillUseType.Persistent => "Persistent",
+        _ => "Tap",
+    };
+
+    private static string RarityName(TargetRarity r) => r switch
+    {
+        TargetRarity.MagicPlus => "Magic+",
+        TargetRarity.RarePlus => "Rare+",
+        TargetRarity.UniqueOnly => "Só Unique",
+        TargetRarity.NormalOnly => "Só Normal",
+        _ => "Qualquer",
+    };
 }
