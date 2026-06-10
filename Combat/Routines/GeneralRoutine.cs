@@ -41,6 +41,19 @@ public sealed class GeneralRoutine : IRoutine
     public void SetRules(List<SkillRule> rules)
     {
         _rules = rules ?? new List<SkillRule>();
+
+        // F1: atribui um RuleId ÚNICO a cada regra (SkillName#N por ocorrência da mesma skill). Distingue
+        // 2+ regras da mesma skill no cooldown/hold sem colisão. 1 regra/skill → "Nome#0" (estável). A
+        // tecla e o chaining (AfterSkill) continuam por SkillName.
+        var seen = new Dictionary<string, int>();
+        foreach (var r in _rules)
+        {
+            if (r == null) continue;
+            var n = seen.TryGetValue(r.SkillName, out var c) ? c : 0;
+            seen[r.SkillName] = n + 1;
+            r.RuleId = $"{r.SkillName}#{n}";
+        }
+
         _ordered = _rules.OrderByDescending(r => r.Priority).ToList();
     }
 
@@ -64,7 +77,7 @@ public sealed class GeneralRoutine : IRoutine
         {
             if (rule.UseType == SkillUseType.Persistent) continue; // Persistente: fora do âmbito (3.x+).
 
-            if (!_cd.Ready(rule.SkillName, rule.CooldownMs)) continue;
+            if (!_cd.Ready(rule.EffectiveRuleId, rule.CooldownMs)) continue;
             if (!RuleEvaluator.Evaluate(ctx, rule)) continue;
 
             // 3.3: encadeamento temporal. Se a regra exige sair DEPOIS de outra skill (AfterSkill):
@@ -95,7 +108,7 @@ public sealed class GeneralRoutine : IRoutine
 
             // Tap (e Buff tratado como tap simples por agora).
             ctx.Skills.Tap(key, slot.TapHoldMs.Value);
-            _cd.Mark(rule.SkillName);
+            MarkUsed(rule);
             Debug = $"geral: TAP {rule.SkillName} (p{rule.Priority})";
             return;
         }
@@ -120,15 +133,26 @@ public sealed class GeneralRoutine : IRoutine
     {
         if (string.IsNullOrEmpty(rule.AfterSkill)) return Chain.None;
 
+        // Âncora por NOME (o Snipe espera "qualquer Barrage", não uma regra específica). O MarkUsed marca
+        // o SkillName além do RuleId, por isso o SinceMs(nome) encontra a âncora venha de que regra vier.
         var sinceAnchor = _cd.SinceMs(rule.AfterSkill);
         if (sinceAnchor > 99999) return Chain.NotYetUsed;              // âncora nunca usada.
         if (sinceAnchor < rule.AfterSkillDelayMs) return Chain.Waiting; // ainda no commit.
 
-        // 1 disparo por âncora: se esta skill já saiu DEPOIS da âncora atual, está consumida.
-        var sinceSelf = _cd.SinceMs(rule.SkillName);
-        if (sinceSelf <= sinceAnchor) return Chain.NotYetUsed;          // já consumiu este Barrage.
+        // 1 disparo por âncora: esta REGRA específica (RuleId) já saiu depois da âncora atual? Se sim,
+        // consumida. Por RuleId (não nome) → 2 regras da mesma skill não se "consomem" uma à outra.
+        var sinceSelf = _cd.SinceMs(rule.EffectiveRuleId);
+        if (sinceSelf <= sinceAnchor) return Chain.NotYetUsed;          // já consumiu esta âncora.
 
         return Chain.Ready;
+    }
+
+    /// <summary>Marca a regra como usada: o RuleId (cooldown desta regra) E o SkillName (âncora do chaining,
+    /// p/ um AfterSkill que refere o nome encontrar o uso venha de que regra da skill vier).</summary>
+    private void MarkUsed(SkillRule rule)
+    {
+        _cd.Mark(rule.EffectiveRuleId);
+        if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
     }
 
     // ── Máquina de HOLD genérica (parametrizada pela regra) ─────────────────────────────────
@@ -198,7 +222,7 @@ public sealed class GeneralRoutine : IRoutine
         if (release)
         {
             ctx.Skills.Release();        // KeyUp.
-            _cd.Mark(rule.SkillName);    // marca cooldown só ao soltar (a skill saiu).
+            MarkUsed(rule);              // marca cooldown (RuleId) + âncora (SkillName) só ao soltar.
             Debug = $"geral: RELEASE {rule.SkillName}";
             _holdRule = null;
             _holdKey = Keys.None;

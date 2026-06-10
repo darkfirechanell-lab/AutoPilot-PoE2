@@ -23,6 +23,17 @@ public sealed class SkillRule
     /// <summary>Nome de memória da skill (ex.: "BarragePlayer"). Liga a regra ao SkillSlot detetado.</summary>
     public string SkillName { get; set; } = "";
 
+    /// <summary>
+    /// Id ÚNICO desta regra (não da skill). Distingue 2+ regras da MESMA skill no cooldown e no estado de
+    /// hold — sem isto, 2 regras "Barrage" partilhavam o relógio e bloqueavam-se. Atribuído pelo motor ao
+    /// carregar as regras (SkillName + "#" + índice). Se vazio, o motor usa SkillName (1 regra = retrocompat).
+    /// A TECLA continua por SkillName (ctx.Find); o chaining AfterSkill continua a referir o SkillName-âncora.
+    /// </summary>
+    public string RuleId { get; set; } = "";
+
+    /// <summary>RuleId efetivo: o atribuído, ou o SkillName se vazio (1 regra/skill = comportamento antigo).</summary>
+    public string EffectiveRuleId => string.IsNullOrEmpty(RuleId) ? SkillName : RuleId;
+
     /// <summary>Tipo de uso da skill.</summary>
     public SkillUseType UseType { get; set; } = SkillUseType.Tap;
 
@@ -45,6 +56,13 @@ public sealed class SkillRule
     /// O nível vem já calculado em <c>RoutineContext.TargetHardness</c> (1x/tick). Default Easy = aditivo.
     /// </summary>
     public TargetHardness MinHardness { get; set; } = TargetHardness.Easy;
+
+    /// <summary>
+    /// Dureza MÁXIMA do alvo (teto). A skill só sai se o nível do alvo é <= isto. Default Tank = não
+    /// filtra (qualquer nível passa). Serve para regras "só este nível": ex.: uma regra de Barrage SÓ
+    /// para Medium (Min=Medium, Max=Medium) distinta da regra do Tank (Min=Tank). Tem de ser >= MinHardness.
+    /// </summary>
+    public TargetHardness MaxHardness { get; set; } = TargetHardness.Tank;
 
     /// <summary>Uniques/bosses são sempre alvo válido mesmo além do alcance configurado.</summary>
     public bool IgnoreRangeForUnique { get; set; } = false;
