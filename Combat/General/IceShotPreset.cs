@@ -43,7 +43,7 @@ public static class IceShotPreset
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
-                MinRarity = TargetRarity.RarePlus,
+                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
                 TargetMissingBuff = BLINDED,
                 CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
@@ -52,13 +52,15 @@ public static class IceShotPreset
             new()
             {
                 SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
-                MinRarity = TargetRarity.RarePlus, TargetHasBuff = FROZEN, CooldownMs = 1540,
+                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
+                TargetHasBuff = FROZEN, CooldownMs = 1540,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
             },
             new()
             {
                 SkillName = SNIPE, UseType = SkillUseType.Hold, Priority = 80,
-                MinRarity = TargetRarity.RarePlus, TargetHasBuff = FROZEN,
+                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Tank,
+                TargetHasBuff = FROZEN,
                 AfterSkill = BARRAGE, AfterSkillDelayMs = 400, // commit: Snipe entra DURANTE o empower
                 ReleaseWhen = HoldReleaseCondition.AnimationStage, ReleaseAnimationStage = 21,
                 ReleaseTimeoutMs = 2000,

@@ -72,6 +72,10 @@ public class AutoPilotSettings : ISettings
     [Submenu(CollapsedByDefault = true)]
     public CombatSettings Combat { get; set; } = new();
 
+    // 8.5 ── DUREZA (HP_ROTATION): calibração da classificação de dureza do alvo (só afeta o motor Geral).
+    [Submenu(CollapsedByDefault = true)]
+    public HardnessSettings Dureza { get; set; } = new();
+
     // 9 ── SKILLS (com o botão Re-detetar Teclas lá dentro)
     [Menu("Skills")]
     [Submenu(CollapsedByDefault = true)]
@@ -298,4 +302,36 @@ public class StaffSettings
 
     [Menu("Duração do sino (ms)", "Tempo estimado que o Tempest Bell dura antes de ser reposto (o 'loop' do boss).")]
     public RangeNode<int> TempestBellDurationMs { get; set; } = new(6000, 1000, 20000);
+}
+
+// ── SECÇÃO DUREZA (HP_ROTATION) ─────────────────────────────────────────────────────────────
+// Calibração da classificação de dureza do alvo. score = (MaxHP+MaxES) / mediana-de-Rares-da-zona.
+// Um Rare MEDIANO dá score ~1.0 (a mediana é a vida típica). 2 limiares separam Easy/Medium/Tank.
+// Só afeta o motor "Geral" (cada skill tem 'Dureza mínima'). Afina com a linha 'dureza:' do debug log.
+[Submenu(CollapsedByDefault = true)]
+public class HardnessSettings
+{
+    [Menu("Limiar TANK", "score >= isto → TANK (o mais duro; combo). Um Rare mediano = ~1.0, por isso " +
+        "2.5 = só Rares ~2.5x mais gordos que o típico. Baixa para apanhar mais como Tank.")]
+    public RangeNode<float> LimiarTank { get; set; } = new(2.5f, 1.1f, 8f);
+
+    [Menu("Limiar MEDIUM", "score >= isto → MEDIUM (+Barrage/Tornado). 1.5 = Rares ~1.5x o típico. " +
+        "Abaixo disto = EASY. Tem de ser < Limiar TANK.")]
+    public RangeNode<float> LimiarMedium { get; set; } = new(1.5f, 0.5f, 5f);
+
+    [Menu("Min amostras p/ mediana real", "Quantos Rares amostrar numa área antes de usar a mediana REAL. " +
+        "Abaixo disto usa a mediana SINTÉTICA (sliders abaixo). Mais = baseline mais fiável, arranque mais lento.")]
+    public RangeNode<int> MinAmostras { get; set; } = new(8, 1, 30);
+
+    [Menu("Cold-start: dano por Ice Shot", "Para a mediana SINTÉTICA (antes de haver Rares suficientes): " +
+        "mediana = este dano × tiros. Mete ~o dano de um tiro da tua skill principal.")]
+    public RangeNode<float> DanoPorIceShot { get; set; } = new(800f, 50f, 50000f);
+
+    [Menu("Cold-start: tiros num Rare mediano", "Quantos tiros da skill principal um Rare TÍPICO aguenta. " +
+        "mediana sintética = dano × isto. Ex.: 12.")]
+    public RangeNode<float> TirosNumRareMediano { get; set; } = new(12f, 1f, 100f);
+
+    [Menu("Ajuste por mod chato", "Quanto SOMA ao score se o alvo tem um mod que o torna mais duro de matar " +
+        "(regenera, revive, reduz dano). Empurra-o para um nível acima sem mudar a vida.")]
+    public RangeNode<float> AjusteModPorMatch { get; set; } = new(0.5f, 0f, 3f);
 }

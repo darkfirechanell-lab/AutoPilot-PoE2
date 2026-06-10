@@ -29,6 +29,13 @@ public sealed class RoutineContext
     /// </summary>
     public bool CanHit { get; set; } = true;
 
+    /// <summary>
+    /// HP_ROTATION: nível de dureza do alvo deste tick (Easy/Medium/Tank). Calculado 1x/tick no plugin
+    /// (não na routine), tal como o <see cref="CanHit"/>. O RuleEvaluator usa-o como gate por skill.
+    /// Default Easy = não filtra (se o classificador não correr, nada muda).
+    /// </summary>
+    public General.TargetHardness TargetHardness { get; set; } = General.TargetHardness.Easy;
+
     /// <summary>As skills configuradas/detetadas, com a ref viva já religada.</summary>
     public List<SkillSlot> SkillSlots { get; init; }
 

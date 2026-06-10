@@ -154,6 +154,7 @@ public sealed class ProfileSkill
     public int CooldownMs { get; set; }
     public bool AttackInPlace { get; set; }
     public string MinRarity { get; set; } = "Qualquer";
+    public string MinHardness { get; set; } = "Easy";
     public bool IgnoreRangeForUnique { get; set; }
     public float MinDistance { get; set; }
     public float MaxDistance { get; set; }

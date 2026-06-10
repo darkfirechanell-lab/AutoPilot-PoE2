@@ -359,12 +359,18 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             else ActionLog.Event($"alvo -> {_currentTarget.Entity.Rarity} id={newTargetId} dist={_currentTarget.Distance:F0} path={SafePath(_currentTarget.Entity)} | {_targets.DiagTargetPick}");
         }
 
-        // H1: classifica a DUREZA do alvo (1x/tick, só o alvo atual — não os 40 mobs). SÓ LOGA; ainda
-        // não age (o gate por skill entra em H4). area level lido 1x aqui. Reusa o LifeCache partilhado.
+        // HP_ROTATION: classifica a DUREZA do alvo (1x/tick, só o alvo atual — não os 40 mobs). area
+        // level lido 1x aqui. Reusa o LifeCache partilhado. O nível alimenta o gate por skill no Geral
+        // (RuleEvaluator) via ctx — só FILTRA quando uma skill tem MinHardness > Easy (default = aditivo).
         if (_currentTarget?.Entity != null)
         {
             var areaLevel = SafeAreaLevel();
-            _hardness.Classify(_currentTarget.Entity, _currentTarget.Entity.Rarity, areaLevel, DateTime.UtcNow.Ticks);
+            _ctx.TargetHardness = _hardness.Classify(
+                _currentTarget.Entity, _currentTarget.Entity.Rarity, areaLevel, DateTime.UtcNow.Ticks);
+        }
+        else
+        {
+            _ctx.TargetHardness = Combat.General.TargetHardness.Easy; // sem alvo: não filtra.
         }
 
         // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
@@ -785,7 +791,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             {
                 Name = s.Name, Enabled = s.Enabled.Value, Priority = s.Priority.Value, TapHoldMs = s.TapHoldMs.Value,
                 UseType = s.UseType.Value, CooldownMs = s.CooldownMs.Value, AttackInPlace = s.AttackInPlace.Value,
-                MinRarity = s.MinRarity.Value, IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
+                MinRarity = s.MinRarity.Value, MinHardness = s.MinHardness.Value,
+                IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
                 MinDistance = s.MinDistance.Value, MaxDistance = s.MaxDistance.Value,
                 TargetHpMin = s.TargetHpMin.Value, TargetHpMax = s.TargetHpMax.Value,
                 CloseTargets = s.CloseTargets.Value, CloseTargetsRange = s.CloseTargetsRange.Value,
@@ -828,7 +835,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
             s.Enabled.Value = p.Enabled; s.Priority.Value = p.Priority; s.TapHoldMs.Value = p.TapHoldMs;
             s.UseType.Value = p.UseType; s.CooldownMs.Value = p.CooldownMs; s.AttackInPlace.Value = p.AttackInPlace;
-            s.MinRarity.Value = p.MinRarity; s.IgnoreRangeForUnique.Value = p.IgnoreRangeForUnique;
+            s.MinRarity.Value = p.MinRarity; s.MinHardness.Value = p.MinHardness;
+            s.IgnoreRangeForUnique.Value = p.IgnoreRangeForUnique;
             s.MinDistance.Value = p.MinDistance; s.MaxDistance.Value = p.MaxDistance;
             s.TargetHpMin.Value = p.TargetHpMin; s.TargetHpMax.Value = p.TargetHpMax;
             s.CloseTargets.Value = p.CloseTargets; s.CloseTargetsRange.Value = p.CloseTargetsRange;
@@ -863,6 +871,14 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             ? Combat.General.SkillRuleMapper.FromSlots(Settings.Skills.Content)
             : Combat.General.IceShotPreset.Build();
         _general.SetRules(rules);
+
+        // HP_ROTATION: propaga a calibração da dureza (sliders da secção Dureza) ao classificador.
+        _hardness.LimiarTank = Settings.Dureza.LimiarTank.Value;
+        _hardness.LimiarMedium = Settings.Dureza.LimiarMedium.Value;
+        _hardness.MinAmostras = Settings.Dureza.MinAmostras.Value;
+        _hardness.DanoPorIceShot = Settings.Dureza.DanoPorIceShot.Value;
+        _hardness.TirosNumRareMediano = Settings.Dureza.TirosNumRareMediano.Value;
+        _hardness.AjusteModPorMatch = Settings.Dureza.AjusteModPorMatch.Value;
     }
 
     /// <summary>

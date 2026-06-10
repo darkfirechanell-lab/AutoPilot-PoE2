@@ -71,6 +71,16 @@ public sealed class SkillSlot
     };
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Dureza mínima do alvo", "Só usa contra alvos deste nível de dureza ou ACIMA. " +
+        "Easy = sempre; Medium = só médios e tanks; Tank = só os mais duros (combo). " +
+        "A dureza vem da vida do mob relativa à zona (ver sliders de Dureza).")]
+    public ListNode MinHardness { get; set; } = new()
+    {
+        Values = new System.Collections.Generic.List<string> { "Easy", "Medium", "Tank" },
+        Value = "Easy",
+    };
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Unique ignora alcance", "Bosses/Uniques são sempre alvo válido mesmo além do alcance.")]
     public ToggleNode IgnoreRangeForUnique { get; set; } = new(false);
 

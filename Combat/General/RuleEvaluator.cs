@@ -50,6 +50,10 @@ public static class RuleEvaluator
         // Raridade mínima do alvo.
         if (!RarityOk(target, rule.MinRarity)) { reason = $"raridade<{rule.MinRarity}"; return false; }
 
+        // HP_ROTATION: dureza mínima. O nível vem já calculado em ctx (1x/tick). Easy = não filtra.
+        if (ctx.TargetHardness < rule.MinHardness)
+        { reason = $"dureza<{rule.MinHardness}"; return false; }
+
         // Distância (com isenção de Unique se configurada).
         var dist = ctx.Target.Distance;
         var isUnique = SafeRarity(target) == MonsterRarity.Unique;

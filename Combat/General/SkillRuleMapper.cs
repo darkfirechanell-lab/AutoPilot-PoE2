@@ -28,6 +28,7 @@ public static class SkillRuleMapper
                 AttackInPlace = s.AttackInPlace.Value,
 
                 MinRarity = ParseRarity(s.MinRarity.Value),
+                MinHardness = ParseHardness(s.MinHardness.Value),
                 IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
                 MinDistance = s.MinDistance.Value,
                 MaxDistance = s.MaxDistance.Value,
@@ -71,6 +72,13 @@ public static class SkillRuleMapper
         "Só Unique" => TargetRarity.UniqueOnly,
         "Só Normal" => TargetRarity.NormalOnly,
         _ => TargetRarity.Any,
+    };
+
+    private static TargetHardness ParseHardness(string v) => v switch
+    {
+        "Medium" => TargetHardness.Medium,
+        "Tank" => TargetHardness.Tank,
+        _ => TargetHardness.Easy,
     };
 
     private static HoldReleaseCondition ParseRelease(string v) => v switch

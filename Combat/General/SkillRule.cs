@@ -39,6 +39,13 @@ public sealed class SkillRule
     /// <summary>Raridade mínima do alvo para usar a skill. Default: qualquer.</summary>
     public TargetRarity MinRarity { get; set; } = TargetRarity.Any;
 
+    /// <summary>
+    /// Dureza MÍNIMA do alvo para usar a skill (HP_ROTATION). A skill só sai se o nível do alvo é >= isto:
+    /// Easy = sempre (não filtra); Medium = só médios e tanks; Tank = só os mais duros (combo).
+    /// O nível vem já calculado em <c>RoutineContext.TargetHardness</c> (1x/tick). Default Easy = aditivo.
+    /// </summary>
+    public TargetHardness MinHardness { get; set; } = TargetHardness.Easy;
+
     /// <summary>Uniques/bosses são sempre alvo válido mesmo além do alcance configurado.</summary>
     public bool IgnoreRangeForUnique { get; set; } = false;
 
