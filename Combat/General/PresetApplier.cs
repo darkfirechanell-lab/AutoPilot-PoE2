@@ -72,6 +72,8 @@ public static class PresetApplier
         s.CloseTargets.Value = r.CloseTargets;
         s.CloseTargetsRange.Value = r.CloseTargetsRange;
 
+        s.GroundEntityPath.Value = r.GroundEntityPath;
+        s.SkipIfGroundActive.Value = r.SkipIfGroundActive;
         s.TargetHasBuff.Value = r.TargetHasBuff;
         s.TargetMissingBuff.Value = r.TargetMissingBuff;
         s.PlayerHasBuff.Value = r.PlayerHasBuff;

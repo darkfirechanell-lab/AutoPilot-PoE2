@@ -37,11 +37,13 @@ public sealed class RoutineContext
     public General.TargetHardness TargetHardness { get; set; } = General.TargetHardness.Easy;
 
     /// <summary>
-    /// True se já há um Tornado Shot vivo no chão PERTO do alvo (no teu range). Calculado 1x/tick no
-    /// plugin a partir das entidades MiscellaneousObjects. A regra do Tornado usa-o para NÃO re-lançar
-    /// enquanto há um ativo (uptime sem spam). Default false = deixa lançar (se a deteção falhar, lança).
+    /// Detetor de entidades no chão (tornado, sino, totem…). O RuleEvaluator usa-o para o gate
+    /// GroundEntityPath/SkipIfGroundActive de cada skill. Pode ser null (gate ignora-se nesse caso).
     /// </summary>
-    public bool TornadoNearTarget { get; set; } = false;
+    public GroundEntityTracker Ground { get; init; }
+
+    /// <summary>Alcance (grid) para a deteção de entidades no chão à volta do alvo. Default = um valor seguro.</summary>
+    public float GroundRange { get; set; } = 60f;
 
     /// <summary>As skills configuradas/detetadas, com a ref viva já religada.</summary>
     public List<SkillSlot> SkillSlots { get; init; }

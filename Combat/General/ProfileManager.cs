@@ -162,6 +162,8 @@ public sealed class ProfileSkill
     public float TargetHpMax { get; set; } = 1f;
     public int CloseTargets { get; set; }
     public float CloseTargetsRange { get; set; } = 10f;
+    public string GroundEntityPath { get; set; } = "";
+    public bool SkipIfGroundActive { get; set; }
     public string TargetHasBuff { get; set; } = "";
     public string TargetMissingBuff { get; set; } = "";
     public string PlayerHasBuff { get; set; } = "";

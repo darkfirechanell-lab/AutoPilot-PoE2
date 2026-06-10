@@ -51,7 +51,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     private StaffRoutine _staff;
     private GeneralRoutine _general;  // Fase 3: motor configurável (corre lado a lado, opt-in).
     private Combat.General.HardnessClassifier _hardness; // H1: classifica dureza do alvo (só loga p/ já).
-    private Combat.TornadoTracker _tornado;              // deteta o tornado no chão (entidade do mundo).
+    private Combat.GroundEntityTracker _ground;          // deteta entidades no chão (tornado/sino/totem) por path.
     private IRoutine _routine;        // a routine ativa (selecionada pelo dropdown)
     private string _lastRoutineName;  // para detetar mudança no dropdown e fazer Reset
     private RoutineContext _ctx;
@@ -129,7 +129,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _general = new GeneralRoutine();
         _general.SetRules(Combat.General.IceShotPreset.Build()); // Fase 3: por agora usa o preset de gelo.
         _hardness = new Combat.General.HardnessClassifier(_weights.Life); // H1: partilha o LifeCache (sem 2ª leitura).
-        _tornado = new Combat.TornadoTracker(GameController);
+        _ground = new Combat.GroundEntityTracker(GameController);
         _danger = new Combat.DangerDetector();
         _dodge = new Combat.DodgeController(_inputQueue);
         _routine = SelectRoutine(); // escolhe pela Settings.Routine (default: Ice Shot)
@@ -140,6 +140,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             Skills = _skills,
             Animation = _animation,
             Entities = _entities,
+            Ground = _ground,
             SkillSlots = Settings.Skills.Content,
         };
 
@@ -369,16 +370,13 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             var areaLevel = SafeAreaLevel();
             _ctx.TargetHardness = _hardness.Classify(
                 _currentTarget.Entity, _currentTarget.Entity.Rarity, areaLevel, DateTime.UtcNow.Ticks);
-
-            // Tornado no chão PERTO do alvo (no teu range) — não em todo o mapa. O tornado é uma entidade
-            // do mundo (MiscellaneousObjects). A regra do Tornado não re-lança enquanto houver um aqui.
-            _ctx.TornadoNearTarget = _tornado.AnyNear(_currentTarget.Entity.GridPos, Settings.AttackRange.Value);
         }
         else
         {
             _ctx.TargetHardness = Combat.General.TargetHardness.Easy; // sem alvo: não filtra.
-            _ctx.TornadoNearTarget = false;
         }
+        // Range da deteção de entidades no chão (à volta do alvo). Usa o teu attack range — não o mapa todo.
+        _ctx.GroundRange = Settings.AttackRange.Value;
 
         // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
         var iceShotActive = Settings.Routine?.Value == "Ice Shot";
@@ -429,7 +427,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
-                $"{_hardness.LastDebug} | tornadoPerto={_ctx.TornadoNearTarget}\n" +
+                $"{_hardness.LastDebug}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
@@ -803,6 +801,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 MinDistance = s.MinDistance.Value, MaxDistance = s.MaxDistance.Value,
                 TargetHpMin = s.TargetHpMin.Value, TargetHpMax = s.TargetHpMax.Value,
                 CloseTargets = s.CloseTargets.Value, CloseTargetsRange = s.CloseTargetsRange.Value,
+                GroundEntityPath = s.GroundEntityPath.Value, SkipIfGroundActive = s.SkipIfGroundActive.Value,
                 TargetHasBuff = s.TargetHasBuff.Value, TargetMissingBuff = s.TargetMissingBuff.Value,
                 PlayerHasBuff = s.PlayerHasBuff.Value, PlayerMissingBuff = s.PlayerMissingBuff.Value,
                 BossIgnoresPlayerMissingBuff = s.BossIgnoresPlayerMissingBuff.Value,
@@ -847,6 +846,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             s.MinDistance.Value = p.MinDistance; s.MaxDistance.Value = p.MaxDistance;
             s.TargetHpMin.Value = p.TargetHpMin; s.TargetHpMax.Value = p.TargetHpMax;
             s.CloseTargets.Value = p.CloseTargets; s.CloseTargetsRange.Value = p.CloseTargetsRange;
+            s.GroundEntityPath.Value = p.GroundEntityPath; s.SkipIfGroundActive.Value = p.SkipIfGroundActive;
             s.TargetHasBuff.Value = p.TargetHasBuff; s.TargetMissingBuff.Value = p.TargetMissingBuff;
             s.PlayerHasBuff.Value = p.PlayerHasBuff; s.PlayerMissingBuff.Value = p.PlayerMissingBuff;
             s.BossIgnoresPlayerMissingBuff.Value = p.BossIgnoresPlayerMissingBuff;

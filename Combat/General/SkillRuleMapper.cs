@@ -37,6 +37,9 @@ public static class SkillRuleMapper
                 CloseTargets = s.CloseTargets.Value,
                 CloseTargetsRange = s.CloseTargetsRange.Value,
 
+                GroundEntityPath = s.GroundEntityPath.Value?.Trim() ?? "",
+                SkipIfGroundActive = s.SkipIfGroundActive.Value,
+
                 TargetHasBuff = s.TargetHasBuff.Value?.Trim() ?? "",
                 TargetMissingBuff = s.TargetMissingBuff.Value?.Trim() ?? "",
                 PlayerHasBuff = s.PlayerHasBuff.Value?.Trim() ?? "",

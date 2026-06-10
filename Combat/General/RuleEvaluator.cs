@@ -54,9 +54,12 @@ public static class RuleEvaluator
         if (ctx.TargetHardness < rule.MinHardness)
         { reason = $"dureza<{rule.MinHardness}"; return false; }
 
-        // Tornado Shot: não re-lançar se já há um tornado vivo perto do alvo (uptime sem spam).
-        if (rule.SkipIfTornadoActive && ctx.TornadoNearTarget)
-        { reason = "tornado já ativo"; return false; }
+        // Entidade no chão (genérico): não usar se já há a entidade desta skill viva perto do alvo
+        // (uptime sem spam — tornado, sino, totem…). Match por substring do path nas MiscellaneousObjects.
+        if (rule.SkipIfGroundActive && !string.IsNullOrEmpty(rule.GroundEntityPath)
+            && ctx.Ground != null
+            && ctx.Ground.AnyNear(rule.GroundEntityPath, target.GridPos, ctx.GroundRange))
+        { reason = $"'{rule.GroundEntityPath}' já no chão"; return false; }
 
         // Distância (com isenção de Unique se configurada).
         var dist = ctx.Target.Distance;

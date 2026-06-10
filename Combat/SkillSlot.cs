@@ -117,6 +117,17 @@ public sealed class SkillSlot
     public TextNode TargetMissingBuff { get; set; } = new("");
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Entidade no chão (path)", "Nome/path da entidade que esta skill cria no chão (ex.: " +
+        "TornadoShotTornado, um sino, um totem). Basta a parte final do path (substring). Combina com " +
+        "'Não usar se já no chão'. Vazio = ignora. Descobre o path no plugin Dev/inspector de entidades.")]
+    public TextNode GroundEntityPath { get; set; } = new("");
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Não usar se já no chão", "Não re-lança a skill enquanto a 'Entidade no chão' acima já " +
+        "existe viva perto do alvo (uptime sem spam — ex.: não re-lançar o tornado/sino enquanto há um).")]
+    public ToggleNode SkipIfGroundActive { get; set; } = new(false);
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Player TEM buff", "Nome do buff que o PLAYER tem de ter. Vazio = ignora.")]
     public TextNode PlayerHasBuff { get; set; } = new("");
 

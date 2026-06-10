@@ -50,11 +50,19 @@ public sealed class SkillRule
     public bool IgnoreRangeForUnique { get; set; } = false;
 
     /// <summary>
-    /// Específico do Tornado Shot: NÃO usar se já há um tornado vivo no chão perto do alvo (evita
-    /// re-lançar enquanto um está ativo — uptime sem spam). O plugin deteta o tornado pela entidade
-    /// MiscellaneousObjects e põe o resultado em <c>RoutineContext.TornadoNearTarget</c>. Default false.
+    /// GENÉRICO (qualquer skill): nome/path da ENTIDADE no chão que esta skill cria (ex.: o tornado
+    /// "TornadoShotTornado", um sino, um totem, uma poça). O plugin deteta a entidade por este path nas
+    /// MiscellaneousObjects. Vazio = ignora. Combina com <see cref="SkipIfGroundActive"/>. Substring
+    /// case-insensitive (basta a parte final do path, como os nomes de buff).
     /// </summary>
-    public bool SkipIfTornadoActive { get; set; } = false;
+    public string GroundEntityPath { get; set; } = "";
+
+    /// <summary>
+    /// Se true, a skill NÃO é usada enquanto já existir a entidade <see cref="GroundEntityPath"/> viva no
+    /// chão perto do alvo (no teu range) — uptime sem spam (ex.: não re-lançar o tornado/sino enquanto há
+    /// um). Sem efeito se GroundEntityPath estiver vazio.
+    /// </summary>
+    public bool SkipIfGroundActive { get; set; } = false;
 
     /// <summary>Distância mínima ao alvo (grid). 0 = sem mínimo.</summary>
     public float MinDistance { get; set; } = 0f;
