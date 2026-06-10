@@ -28,24 +28,23 @@ public static class IceShotPreset
     private const string MARK_ON_ENEMY = "freezing_mark";
     private const string MARK_PLAYER_BUFF = "freezing_mark_damage_buff";
     private const string SALVO_SEALS = "skill_seals";
-    private const string BLINDED = "blinded"; // debuff do Tornado (uptime, não spam)
 
     /// <summary>Constrói as regras de gelo no modelo genérico (ordem por prioridade decrescente).</summary>
     public static List<SkillRule> Build()
     {
         return new List<SkillRule>
         {
-            // Tornado: UMA só regra (cabe num slot de UI, como a Mark). Prioridade ALTA (100) para
-            // entrar ANTES do Barrage no burst. Só Rare+. NÃO exige FROZEN: mantém o uptime do blind
-            // tanto no combo congelado como fora dele (boss). TargetMissingBuff=blinded → não reaplica
-            // enquanto o debuff está ativo; só refresca quando cai. Quando o alvo já tem blinded, esta
-            // regra não dispara e o motor segue para o Barrage. Tornado → Barrage → Snipe.
+            // Tornado Shot (PoE2): NÃO aplica blind (aplica Hinder) e dura 15s SEM cooldown. O seu valor
+            // é ser MULTIPLICADOR DE PROJÉTEIS — Ice Shot/Snipe disparados ATRAVÉS do tornado cospem 3
+            // cópias. Logo a lógica é "manter 1 tornado ATIVO" (re-lançar quando os ~15s acabam), não
+            // refrescar um debuff no alvo. Prioridade ALTA (entra antes do combo, p/ os projéteis depois
+            // passarem por ele). CooldownMs = uptime do tornado (~14s, re-lança antes de expirar).
+            // SEM gate de blind (era o bug: o boss tinha 'blinded' doutra fonte e travava o Tornado).
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
-                TargetMissingBuff = BLINDED,
-                CooldownMs = 2000,
+                CooldownMs = 14000, // uptime: re-lança ~1s antes dos 15s expirarem.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Combo frozen: Barrage → Snipe. Só em Rare+ e alvo FROZEN.
