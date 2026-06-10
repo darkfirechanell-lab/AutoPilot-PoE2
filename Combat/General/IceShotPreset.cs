@@ -43,7 +43,7 @@ public static class IceShotPreset
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
-                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
+                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
                 TargetMissingBuff = BLINDED,
                 CooldownMs = 2000,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
