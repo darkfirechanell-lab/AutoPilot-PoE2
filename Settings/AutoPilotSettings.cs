@@ -32,7 +32,7 @@ public class AutoPilotSettings : ISettings
     public ListNode Routine { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string> { "Ice Shot", "Staff", "Geral" },
-        Value = "Ice Shot",
+        Value = "Geral",
     };
 
     // Ordem das secções escolhida pelo utilizador (literal). O ExileCore renderiza pela ordem de
