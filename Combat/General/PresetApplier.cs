@@ -58,6 +58,12 @@ public static class PresetApplier
             TargetRarity.NormalOnly => "Só Normal",
             _ => "Qualquer",
         };
+        s.MinHardness.Value = r.MinHardness switch
+        {
+            TargetHardness.Medium => "Medium",
+            TargetHardness.Tank => "Tank",
+            _ => "Easy",
+        };
         s.IgnoreRangeForUnique.Value = r.IgnoreRangeForUnique;
         s.MinDistance.Value = r.MinDistance;
         s.MaxDistance.Value = r.MaxDistance;
