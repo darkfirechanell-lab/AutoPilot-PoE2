@@ -80,13 +80,17 @@ public sealed class HardnessClassifier
         if (rarity == MonsterRarity.White) { LastDebug = "dureza: White→Easy"; return TargetHardness.Easy; }
         if (rarity == MonsterRarity.Unique) { LastDebug = "dureza: Unique→Tank"; return TargetHardness.Tank; }
 
-        if (!_life.TryGetPool(entity, nowTicks, out var pool))
+        if (!_life.TryGetPool(entity, nowTicks, out var pool, out var maxHp, out var maxEs))
         { LastDebug = "dureza: pool ilegível→Easy"; return TargetHardness.Easy; }
 
         // Alimenta a amostra (só Rares, 1× por id, sem mods de inflação). #11/#14 + dedup da auditoria.
         var coldStart = AreaCount(areaLevel) < MinAmostras;
-        if (rarity == MonsterRarity.Rare && _sampledIds.Add(entity.Id) && !HasInflation(entity))
-            Insert(areaLevel, pool, nowTicks);
+        var sampled = false;
+        if (rarity == MonsterRarity.Rare && _sampledIds.Add(entity.Id))
+        {
+            if (HasInflation(entity)) { /* excluído da mediana (#14) */ }
+            else { Insert(areaLevel, pool, nowTicks); sampled = true; }
+        }
 
         var median = MedianFor(areaLevel, coldStart, nowTicks);
         if (median <= 0f) { LastDebug = "dureza: mediana 0→Easy"; return TargetHardness.Easy; }
@@ -102,8 +106,9 @@ public sealed class HardnessClassifier
         if (coldStart && rarity == MonsterRarity.Magic && level == TargetHardness.Tank)
             level = TargetHardness.Medium;
 
-        LastDebug = $"dureza: {rarity} pool={pool:F0} med={median:F0}{(coldStart ? "(sint)" : "")} " +
-                    $"score={score:F2} adj={modAdj:F1} → {level} [T>={LimiarTank} M>={LimiarMedium} amostra={AreaCount(areaLevel)}]";
+        LastDebug = $"dureza: {rarity} hp={maxHp:F0} es={maxEs:F0} pool={pool:F0} " +
+                    $"med={median:F0}{(coldStart ? "(sint)" : "")} score={score:F2} adj={modAdj:F1} → {level} " +
+                    $"[T>={LimiarTank} M>={LimiarMedium} amostra={AreaCount(areaLevel)}{(sampled ? " +amostrei" : "")}]";
         return level;
     }
 

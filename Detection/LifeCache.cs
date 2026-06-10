@@ -52,13 +52,19 @@ public sealed class LifeCache
     /// MaxHP/MaxES confirmados em uso real (CharacterData-PoE2, AutoMyAim/TargetAnalyzer).
     /// </summary>
     public bool TryGetPool(Entity entity, long nowTicks, out float pool)
+        => TryGetPool(entity, nowTicks, out pool, out _, out _);
+
+    /// <summary>Como <see cref="TryGetPool(Entity,long,out float)"/> mas devolve MaxHP e MaxES separados (diagnóstico).</summary>
+    public bool TryGetPool(Entity entity, long nowTicks, out float pool, out float maxHp, out float maxEs)
     {
-        pool = 0f;
+        pool = 0f; maxHp = 0f; maxEs = 0f;
         var l = Get(entity, nowTicks);
         if (l == null) return false;
         try
         {
-            pool = l.MaxHP + l.MaxES;
+            maxHp = l.MaxHP;
+            maxEs = l.MaxES;
+            pool = maxHp + maxEs;
             return pool > 0f;
         }
         catch { return false; }
