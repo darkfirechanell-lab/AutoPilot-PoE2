@@ -33,10 +33,6 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     // PROFILING interno (só medição, não muda lógica): tempo de cada secção do TickInner em us, e o
     // PICO de cada uma desde o último reset. Mostrado no debug ("prof:") para descobrir COM CERTEZA
     // qual secção causa o pico, antes de otimizar. Um só Stopwatch reutilizado (barato).
-    private readonly System.Diagnostics.Stopwatch _profSw = new();
-    private long _profSyncPeakUs, _profRebuildPeakUs, _profTargetPeakUs, _profRoutinePeakUs, _profAimPeakUs;
-    private long _profSyncUs, _profRebuildUs, _profTargetUs, _profRoutineUs, _profAimUs;
-    private long Prof() { var us = _profSw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency; _profSw.Restart(); return us; }
 
     private InputQueue _inputQueue;
     private SkillExecutor _skills;
@@ -288,10 +284,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         // Sincroniza a lista de skills de tempos a tempos (deteta skills ao entrar no jogo / swap de
         // arma), e re-liga a ref viva todos os ticks (o endereço muda entre frames).
-        _profSw.Restart(); // PROFILING: mede a secção do Sync/RelinkLive.
         if (++_skillSyncCounter >= SkillSyncEveryTicks) { _skillSyncCounter = 0; TrySyncSkills(force: false); }
         _skillDetector.RelinkLive(Settings.Skills.Content);
-        _profSyncUs = Prof(); if (_profSyncUs > _profSyncPeakUs) _profSyncPeakUs = _profSyncUs;
 
         // Propaga o alcance configurado aos motores de targeting.
         _weights.MaxDistance = Settings.AttackRange.Value;
@@ -320,9 +314,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         }
 
         // Um único scan de entidades por tick — todas as consultas seguintes leem este snapshot.
-        _profSw.Restart(); // PROFILING: mede o scan de entidades (Rebuild).
         _entities.Rebuild();
-        _profRebuildUs = Prof(); if (_profRebuildUs > _profRebuildPeakUs) _profRebuildPeakUs = _profRebuildUs;
 
         // M0: dump AUTOMÁTICO de mods. Com o AutoPilot ativo, ao aparecer um Rare/Unique perto grava os
         // mods sozinho (intervalo ~1.5s, não escreve o ficheiro a cada frame). Opt-in; desligar quando
@@ -352,9 +344,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         // Targeting dinâmico: modo (Danger/Elite/Normal) → pesos → cluster → visibilidade → sticky.
         var previousTargetId = _currentTarget?.Entity?.Id;
-        _profSw.Restart(); // PROFILING: mede o targeting (modo+pesos+cluster+raycast+sticky).
         _currentTarget = _targets.SelectTarget(_entities);
-        _profTargetUs = Prof(); if (_profTargetUs > _profTargetPeakUs) _profTargetPeakUs = _profTargetUs;
 
         // Medição de range: distância ao alvo, para o ActionLog anotar a que dist cada skill dispara.
         ActionLog.CurrentTargetDistance = _currentTarget?.Distance ?? -1f;
@@ -373,12 +363,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         _baseline.SetScenario(CurrentScenario());
 
         // Aim: aponta o cursor ao alvo (centro do corpo). Sem alvo, esquece o último cursor.
-        _profSw.Restart(); // PROFILING: mede o aim (WorldToScreen + suavização + SetCursorPos).
         if (_currentTarget != null)
             _aim.AimAt(_currentTarget);
         else
             _aim.Reset();
-        _profAimUs = Prof(); if (_profAimUs > _profAimPeakUs) _profAimPeakUs = _profAimUs;
 
         // C1: o cursor está em cima do alvo? Usa o erro de mira que o AIM calculou ESTE tick (sem o
         // lag do MousePosition). Se o C1 estiver desligado, CanHit é sempre true (nunca bloqueia).
@@ -390,7 +378,6 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         // Routine: usa as skills. Corre mesmo sem alvo SE estiver a canalizar (fecha o canal).
         // Reage à seleção do dropdown ANTES de aplicar settings/executar (faz Reset se mudou).
         _routine = SelectRoutine();
-        _profSw.Restart(); // PROFILING: mede a rotina (avaliação de regras + uso de skills).
         if (Settings.Combat.Enabled.Value)
         {
             _ctx.Target = _currentTarget;
@@ -400,7 +387,6 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 _routine.Execute(_ctx);
             }
         }
-        _profRoutineUs = Prof(); if (_profRoutineUs > _profRoutinePeakUs) _profRoutinePeakUs = _profRoutineUs;
 
         // Escreve o estado para FICHEIRO conforme "Gravar logs" — independente do texto no ecrã, para
         // poder deixar os logs a correr internamente sem o HUD a tapar o jogo. Se "Mostrar texto" também
@@ -423,10 +409,6 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
-                $"{_skillDetector.ProfileLine()}\n" +
-                $"{_entities.RebuildProfileLine()}\n" +
-                $"prof(us) sync={_profSyncUs} rebuild={_profRebuildUs} target={_profTargetUs} aim={_profAimUs} routine={_profRoutineUs} " +
-                $"| PICOS sync={_profSyncPeakUs} rebuild={_profRebuildPeakUs} target={_profTargetPeakUs} aim={_profAimPeakUs} routine={_profRoutinePeakUs}\n" +
                 $"playerAnim {_animation.DebugLine()}");
         }
     }

@@ -28,23 +28,6 @@ public sealed class SkillDetector
     private readonly GameController _gc;
     private int _lastHash;
 
-    // S0 (SKILL_SYNC_PLANO): medição. Tempo do último ResolveEquipped em us + nº de skills resolvidas,
-    // e um teste de validade dos objetos ActorSkill entre ticks (decide se dá para cachear a lista).
-    private long _lastResolveUs;
-    private int _lastResolveCount;
-    private List<ActorSkill> _prevEquipped;   // a lista do tick anterior (para testar validade)
-    private string _validityResult = "?";
-    // Apanhar o MOMENTO DA TROCA (o caso crítico que o teste normal pode falhar por o DebugLog só gravar
-    // mudanças): contadores que PERSISTEM — nº de trocas detetadas (n mudou) e se ALGUMA troca deu objetos
-    // inválidos. Assim, mesmo que a troca seja num instante, fica registado e não escapa.
-    private int _prevCount = -1;
-    private int _changeCount;          // quantas vezes o nº de skills mudou (= trocas de skill/weapon)
-    private int _invalidAtChange;      // quantas dessas trocas deixaram objetos do tick anterior inválidos
-
-    /// <summary>Linha de diagnóstico (S0+S1) para o debug ("skillsync:"). Só medição, não muda nada.</summary>
-    public string ProfileLine() =>
-        $"skillsync: resolve={_lastResolveUs}us n={_lastResolveCount} validade={_validityResult} " +
-        $"trocas={_changeCount} cache-hits={_cacheHits} re-resolves={_resolves}";
 
     // Skills inerentes (todo o personagem tem) a esconder da lista de combate.
     private static readonly HashSet<string> Inherent = new(StringComparer.OrdinalIgnoreCase)
@@ -69,21 +52,14 @@ public sealed class SkillDetector
     /// Devolve a lista de skills equipadas, REUSANDO a cache se as skills cruas não mudaram (hash barato).
     /// Só faz o ResolveEquipped (caro) quando o hash barato muda. É a fonte única de 'equipped' por tick.
     /// </summary>
-    // Diagnóstico S1: quantas vezes reusou a cache vs re-resolveu (prova que a cache poupa trabalho).
-    private long _cacheHits, _resolves;
-
     private List<ActorSkill> GetEquippedCached(IList<ActorSkill> actorSkills)
     {
         if (actorSkills == null) return _equippedCache ?? new List<ActorSkill>();
 
         var cheap = CheapHash(actorSkills);
         if (_equippedCache != null && cheap == _cheapHash)
-        {
-            _cacheHits++;
             return _equippedCache; // nada mudou → reusa (sem ResolveEquipped).
-        }
 
-        _resolves++;
         _cheapHash = cheap;
         _equippedCache = ResolveEquipped(actorSkills); // mudou → re-resolve (caro, mas raro).
         return _equippedCache;
@@ -185,42 +161,7 @@ public sealed class SkillDetector
 
     // ── Internos ───────────────────────────────────────────────────────────────────────────
 
-    // S0: wrapper que CRONOMETRA o ResolveEquipped (a operação cara) e testa a validade dos objetos do
-    // tick anterior — para o plano decidir se dá para cachear a lista entre ticks. Só medição.
     private List<ActorSkill> ResolveEquipped(IList<ActorSkill> actorSkills)
-    {
-        // Teste de validade: os objetos ActorSkill do tick ANTERIOR ainda são válidos neste tick?
-        // (decide S2.1: cachear a lista vs re-resolver). Address != 0 + ler .Name sem rebentar.
-        var allValid = true;
-        if (_prevEquipped != null && _prevEquipped.Count > 0)
-        {
-            var ok = 0; var total = _prevEquipped.Count;
-            foreach (var ak in _prevEquipped)
-            {
-                try { if (ak != null && ak.Address != 0 && !string.IsNullOrEmpty(ak.Name)) ok++; } catch { }
-            }
-            allValid = ok == total;
-            _validityResult = allValid ? $"VALIDOS({ok}/{total})" : $"INVALIDOS({ok}/{total})";
-        }
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var result = ResolveEquippedRaw(actorSkills);
-        _lastResolveUs = sw.ElapsedTicks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
-        _lastResolveCount = result.Count;
-
-        // Apanhar o momento da TROCA: o nº de skills mudou face ao tick anterior? Se sim, conta a troca
-        // e regista SE nesse momento os objetos antigos ficaram inválidos (o caso crítico para cachear).
-        if (_prevCount >= 0 && result.Count != _prevCount)
-        {
-            _changeCount++;
-            if (!allValid) _invalidAtChange++;
-        }
-        _prevCount = result.Count;
-        _prevEquipped = result;
-        return result;
-    }
-
-    private List<ActorSkill> ResolveEquippedRaw(IList<ActorSkill> actorSkills)
     {
         if (actorSkills == null) return new List<ActorSkill>();
 
