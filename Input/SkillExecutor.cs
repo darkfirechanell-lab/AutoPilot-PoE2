@@ -1,4 +1,3 @@
-using System;
 using System.Windows.Forms;
 
 namespace AutoPilot.Input;
@@ -18,26 +17,10 @@ public sealed class SkillExecutor
 {
     private readonly InputQueue _input;
 
-    // FREIO GLOBAL DE INPUT (modelo ReAgent: GlobalKeyPressCooldown): o motor não INICIA uma ação de tecla
-    // (tap ou começo de um hold novo) mais de 1x a cada GlobalCooldownMs. Mata o spam de raiz — ex.: o
-    // Tornado tentava re-iniciar o hold a cada ~30ms; com o freio, no máximo a cada GlobalCooldownMs.
-    // NÃO afeta MANTER um hold já a decorrer (a mesma tecla continua premida sem re-iniciar).
-    private long _lastStartTicks;
-    public int GlobalCooldownMs { get; set; } = 150;
-
     public SkillExecutor(InputQueue input)
     {
         _input = input;
     }
-
-    /// <summary>True se ainda não passou o freio global desde a última ação de início de tecla.</summary>
-    private bool GlobalCooldownActive()
-    {
-        var sinceMs = (DateTime.UtcNow.Ticks - _lastStartTicks) / TimeSpan.TicksPerMillisecond;
-        return _lastStartTicks != 0 && sinceMs < GlobalCooldownMs;
-    }
-
-    private void MarkStart() => _lastStartTicks = DateTime.UtcNow.Ticks;
 
     /// <summary>Há uma tecla a ser segurada (hold ou channel) agora?</summary>
     public bool IsHolding => _input.IsHolding;
@@ -52,8 +35,6 @@ public sealed class SkillExecutor
     public void Tap(Keys key, int tapHoldMs = InputQueue.DefaultTapHoldMs)
     {
         if (key == Keys.None) return;
-        if (GlobalCooldownActive()) return; // freio global: não preme cedo demais (anti-spam).
-        MarkStart();
         ActionLog.Action("TAP", key, $"hold={tapHoldMs}ms");
         _input.Tap(key, tapHoldMs);
     }
@@ -62,13 +43,8 @@ public sealed class SkillExecutor
     public void Hold(Keys key)
     {
         if (key == Keys.None) return;
-        var arrancar = _input.HeldKey != key; // só é "início" se a tecla MUDA (não ao manter a mesma).
-        if (arrancar)
-        {
-            if (GlobalCooldownActive()) return; // freio global: não INICIA um hold novo cedo demais.
-            MarkStart();
-            ActionLog.Action("HOLD", key);
-        }
+        // Só regista quando ARRANCA o hold (a tecla muda); idempotente não deve encher o log.
+        if (_input.HeldKey != key) ActionLog.Action("HOLD", key);
         _input.Hold(key);
     }
 

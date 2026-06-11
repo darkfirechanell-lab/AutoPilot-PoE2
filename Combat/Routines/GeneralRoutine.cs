@@ -294,9 +294,12 @@ public sealed class GeneralRoutine : IRoutine
                 break;
 
             case HoldReleaseCondition.SkillUsed:
-                // ActorSkill confirma uso/cooldown (ex.: Tornado, Barrage). targetGone também solta.
+                // ActorSkill confirma uso. Solta só quando a skill ENTROU EM COOLDOWN (IsOnCooldown) — a
+                // prova de que SAIU de verdade. NÃO usar IsUsing: é true no MESMO tick em que começa, o que
+                // faz soltar imediatamente e re-disparar no tick seguinte (loop de spam, ex.: Tornado).
+                // Precisa de ter segurado um mínimo (elapsed) p/ a skill arrancar antes de exigir cooldown.
                 var s = ctx.Find(rule.SkillName);
-                release = (s != null && (s.IsUsing || s.IsOnCooldown)) || targetGone;
+                release = (s != null && elapsed >= 60 && s.IsOnCooldown) || targetGone;
                 break;
 
             case HoldReleaseCondition.AnimationStage:
