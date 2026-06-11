@@ -35,19 +35,17 @@ public static class IceShotPreset
     {
         return new List<SkillRule>
         {
-            // Tornado Shot (PoE2): dura 15s, MULTIPLICADOR DE PROJÉTEIS (Ice Shot/Snipe ATRAVÉS dele
-            // cospem 3 cópias). Lógica = "manter 1 tornado por ALVO". Deteção POR ENTIDADE (não por tempo):
-            // o cooldown por tempo seria global (1 tornado a cada 14s no total) e com 2 raros — um à frente,
-            // um atrás — só o 1º teria tornado. A deteção por entidade é POR LOCAL: lança no raro que ainda
-            // NÃO tem tornado perto. O tornado tem path único (TornadoShotTornado), por isso a deteção é
-            // fiável (ao contrário do rod do AutoMyAim, que tinha path genérico e por isso usou tempo).
-            // CooldownMs curto = só anti-duplo-disparo no mesmo instante; a deteção é o gate real.
+            // Tornado Shot (PoE2): dura 15s, MULTIPLICADOR DE PROJÉTEIS. Lógica = "1 lançamento por RARO".
+            // Cada lançamento faz 3 tornados (3 setas do arco) espalhados @21-50 do alvo, por isso contar
+            // tornados no chão (range) não serve. Modelo: COOLDOWN POR ALVO (PerTargetCooldownMs) — lança
+            // no raro A, e pode lançar JÁ no raro B (id diferente), mas não re-lança no A enquanto < 14s.
+            // Reusa o CooldownTracker com chave RuleId@id. Best-effort (sticky pode oscilar → no pior caso
+            // 1 Tornado extra, tolerável). SEM gate de range/entidade (falhava: tornados fora do raio).
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
-                GroundEntityPath = "TornadoShotTornado", SkipIfGroundActive = true, // 1 tornado por alvo (por local).
-                CooldownMs = 800,
+                PerTargetCooldownMs = 14000, // 1 Tornado por raro a cada ~14s (≈ duração do tornado).
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Barrage = BUFF (não dano): um clique curto puxa o arco e dá o buff 'empower_barrage_visual'

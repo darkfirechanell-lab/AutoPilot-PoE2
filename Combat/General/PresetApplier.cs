@@ -61,6 +61,7 @@ public static class PresetApplier
         s.Priority.Value = r.Priority;
         s.CooldownMs.Value = r.CooldownMs;
         s.CommitMs.Value = r.CommitMs;
+        s.PerTargetCooldownMs.Value = r.PerTargetCooldownMs;
         s.AttackInPlace.Value = r.AttackInPlace;
 
         s.MinRarity.Value = r.MinRarity switch

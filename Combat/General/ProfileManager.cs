@@ -153,6 +153,7 @@ public sealed class ProfileSkill
     public string UseType { get; set; } = "Tap";
     public int CooldownMs { get; set; }
     public int CommitMs { get; set; }
+    public int PerTargetCooldownMs { get; set; }
     public bool AttackInPlace { get; set; }
     public string MinRarity { get; set; } = "Qualquer";
     public string MinHardness { get; set; } = "Easy";

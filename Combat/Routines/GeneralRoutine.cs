@@ -114,7 +114,7 @@ public sealed class GeneralRoutine : IRoutine
         {
             if (rule.UseType == SkillUseType.Persistent) continue; // Persistente: fora do âmbito (3.x+).
 
-            if (!_cd.Ready(rule.EffectiveRuleId, rule.CooldownMs)) continue;
+            if (!_cd.Ready(CdKey(rule, ctx), CdMs(rule))) continue;
             if (!RuleEvaluator.Evaluate(ctx, rule)) continue;
 
             // 3.3: encadeamento temporal. Se a regra exige sair DEPOIS de outra skill (AfterSkill):
@@ -147,7 +147,7 @@ public sealed class GeneralRoutine : IRoutine
 
             // Tap (e Buff tratado como tap simples por agora).
             ctx.Skills.Tap(key, slot.TapHoldMs.Value);
-            MarkUsed(rule);
+            MarkUsed(rule, ctx);
             Debug = $"geral: TAP {rule.SkillName} (p{rule.Priority})";
             NoteFired();
             return;
@@ -205,12 +205,12 @@ public sealed class GeneralRoutine : IRoutine
         return Chain.Ready;
     }
 
-    /// <summary>Marca a regra como usada: o RuleId (cooldown desta regra) E o SkillName (âncora do chaining,
-    /// p/ um AfterSkill que refere o nome encontrar o uso venha de que regra da skill vier). Arma também o
-    /// COMMIT de animação (se a regra tem CommitMs): nada dispara até a animação completar.</summary>
-    private void MarkUsed(SkillRule rule)
+    /// <summary>Marca a regra como usada: a chave de cooldown (RuleId, ou RuleId@alvo se PerTargetCooldown)
+    /// E o SkillName (âncora do chaining, p/ um AfterSkill que refere o nome encontrar o uso venha de que
+    /// regra vier). Arma também o COMMIT de animação (se CommitMs). Recebe ctx p/ saber o alvo no DISPARO.</summary>
+    private void MarkUsed(SkillRule rule, RoutineContext ctx)
     {
-        _cd.Mark(rule.EffectiveRuleId);
+        _cd.Mark(CdKey(rule, ctx));
         if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
 
         if (rule.CommitMs > 0)
@@ -221,6 +221,21 @@ public sealed class GeneralRoutine : IRoutine
             _commitSkill = rule.SkillName;
         }
     }
+
+    /// <summary>Chave do CooldownTracker: por REGRA (RuleId) ou por ALVO (RuleId@id) se PerTargetCooldownMs>0.
+    /// Sem alvo, cai para a chave por-regra (não dá para distinguir alvo).</summary>
+    private static string CdKey(SkillRule rule, RoutineContext ctx)
+    {
+        if (rule.PerTargetCooldownMs > 0)
+        {
+            var id = ctx?.Target?.Entity?.Id ?? 0;
+            if (id != 0) return $"{rule.EffectiveRuleId}@{id}";
+        }
+        return rule.EffectiveRuleId;
+    }
+
+    /// <summary>Cooldown efetivo em ms: o por-alvo se ativo, senão o global.</summary>
+    private static int CdMs(SkillRule rule) => rule.PerTargetCooldownMs > 0 ? rule.PerTargetCooldownMs : rule.CooldownMs;
 
     // ── Máquina de HOLD genérica (parametrizada pela regra) ─────────────────────────────────
 
@@ -289,7 +304,7 @@ public sealed class GeneralRoutine : IRoutine
         if (release)
         {
             ctx.Skills.Release();        // KeyUp.
-            MarkUsed(rule);              // marca cooldown (RuleId) + âncora (SkillName) só ao soltar.
+            MarkUsed(rule, ctx);         // marca cooldown (RuleId/por-alvo) + âncora (SkillName) ao soltar.
             Debug = $"geral: RELEASE {rule.SkillName}";
             _holdRule = null;
             _holdKey = Keys.None;

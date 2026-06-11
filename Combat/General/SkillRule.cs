@@ -44,6 +44,15 @@ public sealed class SkillRule
     public int CooldownMs { get; set; } = 0;
 
     /// <summary>
+    /// Cooldown POR ALVO (ms): se > 0, a skill só re-sai contra o MESMO Entity.Id após este tempo, mas
+    /// pode sair LOGO contra um alvo diferente. Ex.: Tornado 1×/raro — lança no raro A, e pode lançar já
+    /// no raro B (id diferente), sem esperar. 0 = usa o CooldownMs normal (global por skill). A chave do
+    /// CooldownTracker passa a ser "RuleId@targetId" quando isto está ativo. Best-effort: o targeting é
+    /// sticky e pode oscilar, por isso no pior caso sai um Tornado extra (tolerável — "quantidade não importa").
+    /// </summary>
+    public int PerTargetCooldownMs { get; set; } = 0;
+
+    /// <summary>
     /// Tempo de "commit" da ANIMAÇÃO (ms): depois de esta skill disparar, o motor NÃO dispara NENHUMA
     /// outra skill durante este tempo — protege a animação de ser cortada (ex.: Barrage tem ~500ms de
     /// animação que, se interrompida por outra skill, falha o uso). 0 = sem proteção (a skill seguinte

@@ -799,7 +799,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             {
                 Name = s.Name, Enabled = s.Enabled.Value, Priority = s.Priority.Value, TapHoldMs = s.TapHoldMs.Value,
                 UseType = s.UseType.Value, CooldownMs = s.CooldownMs.Value, CommitMs = s.CommitMs.Value,
-                AttackInPlace = s.AttackInPlace.Value,
+                PerTargetCooldownMs = s.PerTargetCooldownMs.Value, AttackInPlace = s.AttackInPlace.Value,
                 MinRarity = s.MinRarity.Value, MinHardness = s.MinHardness.Value, MaxHardness = s.MaxHardness.Value,
                 IgnoreRangeForUnique = s.IgnoreRangeForUnique.Value,
                 MinDistance = s.MinDistance.Value, MaxDistance = s.MaxDistance.Value,
@@ -851,7 +851,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
             s.Enabled.Value = p.Enabled; s.Priority.Value = p.Priority; s.TapHoldMs.Value = p.TapHoldMs;
             s.UseType.Value = p.UseType; s.CooldownMs.Value = p.CooldownMs; s.CommitMs.Value = p.CommitMs;
-            s.AttackInPlace.Value = p.AttackInPlace;
+            s.PerTargetCooldownMs.Value = p.PerTargetCooldownMs; s.AttackInPlace.Value = p.AttackInPlace;
             s.MinRarity.Value = p.MinRarity; s.MinHardness.Value = p.MinHardness; s.MaxHardness.Value = p.MaxHardness;
             s.IgnoreRangeForUnique.Value = p.IgnoreRangeForUnique;
             s.MinDistance.Value = p.MinDistance; s.MaxDistance.Value = p.MaxDistance;

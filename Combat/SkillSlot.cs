@@ -76,6 +76,12 @@ public sealed class SkillSlot
     public RangeNode<int> CommitMs { get; set; } = new(0, 0, 2000);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Cooldown POR ALVO (ms)", "Só re-usa a skill contra o MESMO mob após este tempo, mas pode " +
+        "usá-la JÁ contra outro mob. Ex.: Tornado 1x por raro (~14000): lança no raro A e pode lançar já no " +
+        "raro B, sem esperar. 0 = usa o Cooldown normal (global). Substitui o Cooldown quando > 0.")]
+    public RangeNode<int> PerTargetCooldownMs { get; set; } = new(0, 0, 30000);
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Atacar parado (Shift)", "Segura Shift ao usar = ataca sem andar para o cursor (build de arco).")]
     public ToggleNode AttackInPlace { get; set; } = new(false);
 

@@ -27,6 +27,7 @@ public static class SkillRuleMapper
                 Priority = s.Priority.Value,
                 CooldownMs = s.CooldownMs.Value,
                 CommitMs = s.CommitMs.Value,
+                PerTargetCooldownMs = s.PerTargetCooldownMs.Value,
                 AttackInPlace = s.AttackInPlace.Value,
 
                 MinRarity = ParseRarity(s.MinRarity.Value),
@@ -71,6 +72,7 @@ public static class SkillRuleMapper
                     Priority = s.Extra_Priority.Value,
                     CooldownMs = s.Extra_CooldownMs.Value,
                     CommitMs = s.CommitMs.Value, // commit é da skill (animação), partilhado pelas 2 regras.
+                    PerTargetCooldownMs = s.PerTargetCooldownMs.Value, // idem (é da skill).
                     AttackInPlace = s.AttackInPlace.Value,
 
                     MinRarity = ParseRarity(s.Extra_MinRarity.Value),
