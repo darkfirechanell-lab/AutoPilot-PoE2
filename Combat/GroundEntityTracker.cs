@@ -46,31 +46,34 @@ public sealed class GroundEntityTracker
     }
 
     /// <summary>
-    /// DIAGNÓSTICO: percorre TODAS as EntityType à procura de algo com "Tornado" no path, devolvendo onde
-    /// está (tipo + path + distância). Serve para descobrir porque o gate do tornado não dispara — se a
-    /// entidade está noutro EntityType, com outro path, ou longe do alvo.
+    /// DIAGNÓSTICO claro do gate do tornado: para o ALVO dado, lista TODOS os tornados (path fragment) no
+    /// mundo, a distância de cada ao alvo, e marca quais estão DENTRO do raio (= apanhados → bloqueiam o
+    /// re-lançamento). Mostra o veredito: "BLOQUEIA" (há tornado no raio) ou "LIVRE" (lança).
     /// </summary>
-    public string DiagFind(string fragment, Vector2 gridCenter)
+    public string DiagGate(string fragment, Vector2 alvoPos, float raio)
     {
-        var found = new System.Collections.Generic.List<string>();
-        foreach (EntityType et in System.Enum.GetValues(typeof(EntityType)))
+        if (string.IsNullOrEmpty(fragment)) return "tornado: sem path configurado";
+        var dists = new System.Collections.Generic.List<float>();
+        var total = 0;
+        try
         {
-            try
-            {
-                if (!_gc.EntityListWrapper.ValidEntitiesByType.TryGetValue(et, out var list) || list == null) continue;
+            if (_gc.EntityListWrapper.ValidEntitiesByType.TryGetValue(EntityType.MiscellaneousObjects, out var list) && list != null)
                 foreach (var e in list)
                 {
                     if (e == null || !e.IsValid) continue;
                     var path = e.Path;
                     if (string.IsNullOrEmpty(path) || path.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                    var d = Vector2.Distance(e.GridPos, gridCenter);
-                    found.Add($"{et}:{path.Replace("Metadata/", "")}@{d:F0}");
-                    if (found.Count >= 4) break;
+                    total++;
+                    dists.Add(Vector2.Distance(e.GridPos, alvoPos));
                 }
-            }
-            catch { }
-            if (found.Count >= 4) break;
         }
-        return found.Count == 0 ? $"nenhum '{fragment}' em lado nenhum" : string.Join(" ", found);
+        catch { return "tornado: erro de leitura"; }
+
+        if (total == 0) return $"tornado: 0 no mundo → LIVRE (lança)";
+        dists.Sort();
+        var dentro = dists.FindAll(d => d <= raio).Count;
+        var lista = string.Join(",", dists.ConvertAll(d => $"{d:F0}"));
+        var veredito = dentro > 0 ? "BLOQUEIA" : "LIVRE (todos fora do raio!)";
+        return $"tornado: {total} no mundo, dist ao alvo=[{lista}] raio={raio:F0} → {dentro} dentro → {veredito}";
     }
 }

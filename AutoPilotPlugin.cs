@@ -434,7 +434,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
                 $"playerAnim {_animation.DebugLine()}\n" +
-                $"tornadoDiag: {_ground.DiagFind("Tornado", _currentTarget?.Entity?.GridPos ?? GameController.Player.GridPos)}");
+                $"{_ground.DiagGate("TornadoShotTornado", _currentTarget?.Entity?.GridPos ?? GameController.Player.GridPos, Settings.Combat.GroundDetectRange.Value)}");
         }
     }
 
