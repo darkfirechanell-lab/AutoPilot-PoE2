@@ -350,6 +350,13 @@ public sealed class GeneralRoutine : IRoutine
         catch { return false; }
     }
 
+    /// <summary>
+    /// Larga o estado de HOLD/commit (a routine para de segurar). NÃO limpa o cooldown — o Reset é chamado
+    /// em vários pontos do tick (perda de alvo, esquiva, retomar) e limpar o _cd aí apagava o cooldown que
+    /// uma skill ACABOU de marcar (era a raiz do spam do Tornado: marcava cd, o Reset do tick seguinte
+    /// apagava-o, re-disparava). O cooldown persiste entre ticks (é o seu propósito); só se limpa de
+    /// propósito ao mudar de área / desligar (ResetCooldowns).
+    /// </summary>
     public void Reset()
     {
         if (_holdRule != null) { /* a tecla é largada pelo ReleaseAll do plugin */ }
@@ -360,6 +367,8 @@ public sealed class GeneralRoutine : IRoutine
         _commitUntilTicks = 0;
         _commitStartTicks = 0;
         _commitSkill = "";
-        _cd.Clear();
     }
+
+    /// <summary>Limpa os cooldowns por completo. SÓ ao mudar de área / desligar — não no tick normal.</summary>
+    public void ResetCooldowns() => _cd.Clear();
 }

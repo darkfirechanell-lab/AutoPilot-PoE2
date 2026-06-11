@@ -616,6 +616,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     {
         // Mudança de zona: larga tudo. Um hold/canal a meio não deve atravessar o loading.
         _routine?.Reset();
+        _general?.ResetCooldowns(); // limpa os cooldowns SÓ aqui (não no Reset do tick — apagava cd ativo).
         _skills?.ReleaseAll();
         _entities?.Clear();
         _rays?.UpdateArea();
