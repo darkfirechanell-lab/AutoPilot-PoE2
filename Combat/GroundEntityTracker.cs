@@ -44,4 +44,33 @@ public sealed class GroundEntityTracker
         catch { /* defensivo: na dúvida assume que não há (deixa a skill usar) */ }
         return false;
     }
+
+    /// <summary>
+    /// DIAGNÓSTICO: percorre TODAS as EntityType à procura de algo com "Tornado" no path, devolvendo onde
+    /// está (tipo + path + distância). Serve para descobrir porque o gate do tornado não dispara — se a
+    /// entidade está noutro EntityType, com outro path, ou longe do alvo.
+    /// </summary>
+    public string DiagFind(string fragment, Vector2 gridCenter)
+    {
+        var found = new System.Collections.Generic.List<string>();
+        foreach (EntityType et in System.Enum.GetValues(typeof(EntityType)))
+        {
+            try
+            {
+                if (!_gc.EntityListWrapper.ValidEntitiesByType.TryGetValue(et, out var list) || list == null) continue;
+                foreach (var e in list)
+                {
+                    if (e == null || !e.IsValid) continue;
+                    var path = e.Path;
+                    if (string.IsNullOrEmpty(path) || path.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    var d = Vector2.Distance(e.GridPos, gridCenter);
+                    found.Add($"{et}:{path.Replace("Metadata/", "")}@{d:F0}");
+                    if (found.Count >= 4) break;
+                }
+            }
+            catch { }
+            if (found.Count >= 4) break;
+        }
+        return found.Count == 0 ? $"nenhum '{fragment}' em lado nenhum" : string.Join(" ", found);
+    }
 }
