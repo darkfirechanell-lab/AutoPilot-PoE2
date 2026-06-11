@@ -238,6 +238,41 @@ public sealed class EntityCache
     }
 
     /// <summary>DIAGNÓSTICO: a razão pela qual uma entidade falha o IsValidTarget (para o log do boss).</summary>
+    /// <summary>
+    /// DIAGNÓSTICO do boss não-mirado: procura entidades de raridade Unique em TODOS os EntityType (não só
+    /// Monster), mostrando onde estão (tipo + raridade + dist + se IsTargetable/IsHidden). Se o boss não
+    /// está em EntityType.Monster, o Rebuild (que só varre Monster) nunca o vê → elites=0.
+    /// </summary>
+    public string DiagBoss()
+    {
+        var found = new List<string>();
+        var player = _gc?.Player;
+        var pPos = player?.GridPos ?? default;
+        foreach (EntityType et in System.Enum.GetValues(typeof(EntityType)))
+        {
+            try
+            {
+                if (!_gc.EntityListWrapper.ValidEntitiesByType.TryGetValue(et, out var list) || list == null) continue;
+                foreach (var e in list)
+                {
+                    if (e == null || !e.IsValid) continue;
+                    MonsterRarity rar;
+                    try { rar = e.GetComponent<ExileCore2.PoEMemory.Components.ObjectMagicProperties>()?.Rarity ?? MonsterRarity.White; }
+                    catch { continue; }
+                    if (rar != MonsterRarity.Unique) continue;
+                    var d = Vector2.Distance(pPos, e.GridPos);
+                    bool tgt, hid; try { tgt = e.IsTargetable; hid = e.IsHidden; } catch { tgt = false; hid = true; }
+                    var path = (e.Path ?? "?").Replace("Metadata/", "");
+                    found.Add($"{et}:{path}@{d:F0} tgt={tgt} hid={hid}");
+                    if (found.Count >= 4) break;
+                }
+            }
+            catch { }
+            if (found.Count >= 4) break;
+        }
+        return found.Count == 0 ? "bossDiag: nenhum Unique em lado nenhum" : "bossDiag: " + string.Join(" | ", found);
+    }
+
     private string WhyInvalid(Entity entity, float distance)
     {
         try
