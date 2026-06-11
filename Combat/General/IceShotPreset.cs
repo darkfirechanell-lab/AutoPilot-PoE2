@@ -48,26 +48,27 @@ public static class IceShotPreset
                 CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Barrage tem DUAS regras (a "2 formas" pedida). É TAP (não channel): cast ~0.7s que aplica
-            // um buff de empower (o próximo ataque de arco repete +2x). Segurar (Hold) cancelava-o.
+            // Barrage tem DUAS regras (a "2 formas" pedida). HOLD: segura a tecla ATÉ o ActorSkill
+            // confirmar o uso (ReleaseWhen=SkillUsed → solta em use=1/cd=1, NÃO timeout cego de 500ms).
+            // No log o Barrage mostra use=1/cd=1, por isso o SkillUsed deteta-o. O CommitMs protege a
+            // animação DEPOIS de soltar (a skill seguinte não a corta).
             //
             // Regra A — Barrage no MEDIUM (só Medium, NÃO Tank): sai SEM frozen contra rares médios.
-            // MaxHardness=Medium impede que esta regra dispare no Tank/boss (essa é a regra B).
             new()
             {
-                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
+                SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
                 MinRarity = TargetRarity.RarePlus,
                 MinHardness = TargetHardness.Medium, MaxHardness = TargetHardness.Medium,
-                CooldownMs = 800, CommitMs = 400, // protege a animação; alinhado com o AfterSkillDelay do Snipe.
+                CooldownMs = 800, CommitMs = 400,
+                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
             },
-            // Regra B — Barrage no TANK/BOSS: SÓ com frozen (parte do combo Tornado→Barrage→Snipe). No
-            // boss não-congelado NÃO sai (espera o freeze). Mesma prioridade que A (são exclusivas pela
-            // banda de dureza). O empower daqui alimenta o Snipe.
+            // Regra B — Barrage no TANK/BOSS: SÓ com frozen (parte do combo). O empower alimenta o Snipe.
             new()
             {
-                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
+                SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Tank,
                 TargetHasBuff = FROZEN, CooldownMs = 800, CommitMs = 400,
+                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
             },
             // Snipe: só no TANK (ou boss) e SÓ quando o alvo está FROZEN — é o burst do combo congelado
             // (Barrage → Snipe). Entra durante o empower do Barrage (AfterSkill + delay).
