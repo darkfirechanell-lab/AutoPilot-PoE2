@@ -210,8 +210,7 @@ public sealed class GeneralRoutine : IRoutine
     /// regra vier). Arma também o COMMIT de animação (se CommitMs). Recebe ctx p/ saber o alvo no DISPARO.</summary>
     private void MarkUsed(SkillRule rule, RoutineContext ctx)
     {
-        _cd.Mark(CdKey(rule, ctx));
-        if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
+        MarkCooldown(rule, ctx);
 
         if (rule.CommitMs > 0)
         {
@@ -220,6 +219,15 @@ public sealed class GeneralRoutine : IRoutine
             _commitUntilTicks = now + rule.CommitMs * TimeSpan.TicksPerMillisecond; // teto de segurança.
             _commitSkill = rule.SkillName;
         }
+    }
+
+    /// <summary>Marca SÓ o cooldown (chave por-regra/por-alvo + o SkillName p/ a âncora do chaining), sem o
+    /// commit de animação. Usado no BeginHold para armar o cooldown JÁ no disparo (cobre a latência do efeito
+    /// aparecer no mundo) sem disparar o commit prematuramente.</summary>
+    private void MarkCooldown(SkillRule rule, RoutineContext ctx)
+    {
+        _cd.Mark(CdKey(rule, ctx));
+        if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
     }
 
     /// <summary>Chave do CooldownTracker: por REGRA (RuleId) ou por ALVO (RuleId@id) se PerTargetCooldownMs>0.
@@ -248,6 +256,13 @@ public sealed class GeneralRoutine : IRoutine
         _holdSawChannelStage = false;
         _holdSnapshotCharges = string.IsNullOrEmpty(rule.ReleaseBuffName)
             ? 0 : BuffReader.Charges(ctx.Game?.Player, rule.ReleaseBuffName);
+
+        // Arma o cooldown JÁ no disparo (não só no release). Cobre a latência entre lançar a skill e o seu
+        // efeito aparecer no mundo (ex.: o tornado demora ~330ms a virar entidade; sem isto, o gate de
+        // deteção vê "0 no mundo" e re-lança 2-3x nesse intervalo). Só o cooldown (não o commit, que arma
+        // no release quando a skill confirma). O MarkUsed no release re-marca (ok).
+        MarkCooldown(rule, ctx);
+
         ctx.Skills.Channel(key); // KeyDown contínuo (mantém premida).
     }
 
