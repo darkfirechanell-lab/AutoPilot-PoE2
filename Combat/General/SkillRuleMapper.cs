@@ -26,6 +26,7 @@ public static class SkillRuleMapper
                 UseType = ParseUseType(s.UseType.Value),
                 Priority = s.Priority.Value,
                 CooldownMs = s.CooldownMs.Value,
+                CommitMs = s.CommitMs.Value,
                 AttackInPlace = s.AttackInPlace.Value,
 
                 MinRarity = ParseRarity(s.MinRarity.Value),
@@ -69,6 +70,7 @@ public static class SkillRuleMapper
                     UseType = ParseUseType(s.Extra_UseType.Value),
                     Priority = s.Extra_Priority.Value,
                     CooldownMs = s.Extra_CooldownMs.Value,
+                    CommitMs = s.CommitMs.Value, // commit é da skill (animação), partilhado pelas 2 regras.
                     AttackInPlace = s.AttackInPlace.Value,
 
                     MinRarity = ParseRarity(s.Extra_MinRarity.Value),

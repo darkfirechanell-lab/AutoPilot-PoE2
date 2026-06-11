@@ -48,15 +48,26 @@ public static class IceShotPreset
                 CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Barrage (PoE2): NÃO é channel — é um TAP (cast ~0.7s) que aplica um BUFF DE EMPOWER em ti
-            // ("readies a volley": o próximo ataque de arco repete +2x +1/frenzy). Segurar a tecla
-            // (Hold) CANCELAVA-O (n=0 no log). Tap simples. A partir de MEDIUM, SEM frozen (regra do
-            // user). O Snipe seguinte consome o empower -> one-shot no boss.
+            // Barrage tem DUAS regras (a "2 formas" pedida). É TAP (não channel): cast ~0.7s que aplica
+            // um buff de empower (o próximo ataque de arco repete +2x). Segurar (Hold) cancelava-o.
+            //
+            // Regra A — Barrage no MEDIUM (só Medium, NÃO Tank): sai SEM frozen contra rares médios.
+            // MaxHardness=Medium impede que esta regra dispare no Tank/boss (essa é a regra B).
             new()
             {
                 SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
-                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Medium,
-                CooldownMs = 800, // cast ~0.7s; evita re-tocar antes de a volley sair.
+                MinRarity = TargetRarity.RarePlus,
+                MinHardness = TargetHardness.Medium, MaxHardness = TargetHardness.Medium,
+                CooldownMs = 800, CommitMs = 400, // protege a animação; alinhado com o AfterSkillDelay do Snipe.
+            },
+            // Regra B — Barrage no TANK/BOSS: SÓ com frozen (parte do combo Tornado→Barrage→Snipe). No
+            // boss não-congelado NÃO sai (espera o freeze). Mesma prioridade que A (são exclusivas pela
+            // banda de dureza). O empower daqui alimenta o Snipe.
+            new()
+            {
+                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
+                MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Tank,
+                TargetHasBuff = FROZEN, CooldownMs = 800, CommitMs = 400,
             },
             // Snipe: só no TANK (ou boss) e SÓ quando o alvo está FROZEN — é o burst do combo congelado
             // (Barrage → Snipe). Entra durante o empower do Barrage (AfterSkill + delay).

@@ -70,6 +70,12 @@ public sealed class SkillSlot
     public RangeNode<int> CooldownMs { get; set; } = new(0, 0, 10000);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("[Geral] Commit animação (ms)", "Após esta skill disparar, NENHUMA outra skill dispara durante " +
+        "este tempo — protege a animação de ser cortada (ex.: Barrage ~500ms; se outra skill entra a meio, " +
+        "a animação corta e o Barrage falha). 0 = sem proteção.")]
+    public RangeNode<int> CommitMs { get; set; } = new(0, 0, 2000);
+
+    [ConditionalDisplay(nameof(IsConfigVisible))]
     [Menu("[Geral] Atacar parado (Shift)", "Segura Shift ao usar = ataca sem andar para o cursor (build de arco).")]
     public ToggleNode AttackInPlace { get; set; } = new(false);
 

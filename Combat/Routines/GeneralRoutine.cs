@@ -30,6 +30,11 @@ public sealed class GeneralRoutine : IRoutine
     private List<SkillRule> _rules = new();
     private List<SkillRule> _ordered = new();
 
+    // Commit de animação: depois de uma skill com CommitMs disparar, NENHUMA outra dispara até passar
+    // o commit (protege a animação de ser cortada — ex.: Barrage ~500ms).
+    private long _commitUntilTicks;       // instante (UTC ticks) até ao qual nada dispara. 0 = livre.
+    private string _commitSkill = "";     // qual skill está em commit (p/ o debug).
+
     // Estado de hold (uma máquina partilhada, como no IceShot).
     private SkillRule _holdRule;          // a regra que está a segurar (null = nenhuma).
     private Keys _holdKey;
@@ -70,6 +75,20 @@ public sealed class GeneralRoutine : IRoutine
         {
             ContinueHold(ctx);
             return;
+        }
+
+        // 1.5. Commit de animação: se uma skill com CommitMs disparou há pouco, NÃO dispara nada (deixa a
+        // animação completar sem corte — ex.: Barrage). Skills em hold já são tratadas acima.
+        if (_commitUntilTicks > 0)
+        {
+            var now = DateTime.UtcNow.Ticks;
+            if (now < _commitUntilTicks)
+            {
+                var restamMs = (_commitUntilTicks - now) / TimeSpan.TicksPerMillisecond;
+                Debug = $"geral: commit {_commitSkill} ({restamMs}ms restantes)";
+                return;
+            }
+            _commitUntilTicks = 0; _commitSkill = ""; // commit terminou.
         }
 
         // 2. Avalia as skills por prioridade. A primeira que passa tudo, dispara.
@@ -148,11 +167,18 @@ public sealed class GeneralRoutine : IRoutine
     }
 
     /// <summary>Marca a regra como usada: o RuleId (cooldown desta regra) E o SkillName (âncora do chaining,
-    /// p/ um AfterSkill que refere o nome encontrar o uso venha de que regra da skill vier).</summary>
+    /// p/ um AfterSkill que refere o nome encontrar o uso venha de que regra da skill vier). Arma também o
+    /// COMMIT de animação (se a regra tem CommitMs): nada dispara até a animação completar.</summary>
     private void MarkUsed(SkillRule rule)
     {
         _cd.Mark(rule.EffectiveRuleId);
         if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
+
+        if (rule.CommitMs > 0)
+        {
+            _commitUntilTicks = DateTime.UtcNow.Ticks + rule.CommitMs * TimeSpan.TicksPerMillisecond;
+            _commitSkill = rule.SkillName;
+        }
     }
 
     // ── Máquina de HOLD genérica (parametrizada pela regra) ─────────────────────────────────
@@ -244,6 +270,8 @@ public sealed class GeneralRoutine : IRoutine
         _holdKey = Keys.None;
         _holdTargetId = 0;
         _holdSawChannelStage = false;
+        _commitUntilTicks = 0;
+        _commitSkill = "";
         _cd.Clear();
     }
 }

@@ -43,6 +43,14 @@ public sealed class SkillRule
     /// <summary>Cooldown interno anti-spam (ms). O cooldown REAL do jogo é lido por IsReady à parte.</summary>
     public int CooldownMs { get; set; } = 0;
 
+    /// <summary>
+    /// Tempo de "commit" da ANIMAÇÃO (ms): depois de esta skill disparar, o motor NÃO dispara NENHUMA
+    /// outra skill durante este tempo — protege a animação de ser cortada (ex.: Barrage tem ~500ms de
+    /// animação que, se interrompida por outra skill, falha o uso). 0 = sem proteção (a skill seguinte
+    /// pode entrar logo). Diferente do CooldownMs (que só trava ESTA skill); o commit trava TODAS.
+    /// </summary>
+    public int CommitMs { get; set; } = 0;
+
     /// <summary>Segurar Shift (ou tecla equivalente) ao usar = atacar PARADO (build de arco).</summary>
     public bool AttackInPlace { get; set; } = false;
 
