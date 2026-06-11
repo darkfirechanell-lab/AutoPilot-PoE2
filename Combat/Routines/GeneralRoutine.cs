@@ -32,7 +32,8 @@ public sealed class GeneralRoutine : IRoutine
 
     // Commit de animação: depois de uma skill com CommitMs disparar, NENHUMA outra dispara até passar
     // o commit (protege a animação de ser cortada — ex.: Barrage ~500ms).
-    private long _commitUntilTicks;       // instante (UTC ticks) até ao qual nada dispara. 0 = livre.
+    private long _commitUntilTicks;       // teto de segurança (UTC ticks) do commit. 0 = livre.
+    private long _commitStartTicks;       // quando o commit começou (p/ medir a animação).
     private string _commitSkill = "";     // qual skill está em commit (p/ o debug).
 
     // Estado de hold (uma máquina partilhada, como no IceShot).
@@ -84,19 +85,28 @@ public sealed class GeneralRoutine : IRoutine
             return;
         }
 
-        // 1.5. Commit de animação: se uma skill com CommitMs disparou há pouco, NÃO dispara nada (deixa a
-        // animação completar sem corte — ex.: Barrage). Skills em hold já são tratadas acima.
+        // 1.5. Commit de animação: depois de uma skill com CommitMs disparar, NÃO dispara nada até a
+        // ANIMAÇÃO completar (deixa-a sair sem corte — ex.: Barrage). Espera pelo PROGRESS da animação
+        // (0→1, fiável nesta build) e larga quando chega ao fim; o CommitMs é só o TETO de segurança (se
+        // o progress falhar, não fica preso). Mínimo de 80ms para a animação ter mesmo arrancado.
         if (_commitUntilTicks > 0)
         {
             var now = DateTime.UtcNow.Ticks;
-            if (now < _commitUntilTicks)
+            var decorridoMs = (now - _commitStartTicks) / TimeSpan.TicksPerMillisecond;
+            var progresso = ctx.Animation?.Progress ?? 1f;
+
+            // Acaba o commit quando: (a) a animação está quase no fim (progress>=0.9) e já arrancou
+            // (>=80ms), OU (b) o teto de tempo (CommitMs) passou. O que vier primeiro.
+            var animFeita = decorridoMs >= 80 && progresso >= 0.9f;
+            var tetoPassou = now >= _commitUntilTicks;
+
+            if (!animFeita && !tetoPassou)
             {
-                var restamMs = (_commitUntilTicks - now) / TimeSpan.TicksPerMillisecond;
-                Debug = $"geral: commit {_commitSkill} ({restamMs}ms restantes)";
+                Debug = $"geral: commit {_commitSkill} (prog={progresso:F2} {decorridoMs}ms)";
                 NoteIdle($"commit:{_commitSkill}");
                 return;
             }
-            _commitUntilTicks = 0; _commitSkill = ""; // commit terminou.
+            _commitUntilTicks = 0; _commitSkill = ""; // commit terminou (animação feita ou teto).
         }
 
         // 2. Avalia as skills por prioridade. A primeira que passa tudo, dispara.
@@ -205,7 +215,9 @@ public sealed class GeneralRoutine : IRoutine
 
         if (rule.CommitMs > 0)
         {
-            _commitUntilTicks = DateTime.UtcNow.Ticks + rule.CommitMs * TimeSpan.TicksPerMillisecond;
+            var now = DateTime.UtcNow.Ticks;
+            _commitStartTicks = now;
+            _commitUntilTicks = now + rule.CommitMs * TimeSpan.TicksPerMillisecond; // teto de segurança.
             _commitSkill = rule.SkillName;
         }
     }
@@ -300,6 +312,7 @@ public sealed class GeneralRoutine : IRoutine
         _holdTargetId = 0;
         _holdSawChannelStage = false;
         _commitUntilTicks = 0;
+        _commitStartTicks = 0;
         _commitSkill = "";
         _cd.Clear();
     }
