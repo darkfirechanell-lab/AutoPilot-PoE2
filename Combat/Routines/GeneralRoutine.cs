@@ -72,6 +72,7 @@ public sealed class GeneralRoutine : IRoutine
     private int _idleTicks;       // ticks seguidos sem disparar nada.
     private string _idleReason = "";
     public string FluidezDebug { get; private set; } = "";
+    public string CdDiag { get; private set; } = ""; // diagnóstico da raiz do spam do Tornado.
 
     public void Execute(RoutineContext ctx)
     {
@@ -113,6 +114,14 @@ public sealed class GeneralRoutine : IRoutine
         foreach (var rule in _ordered)
         {
             if (rule.UseType == SkillUseType.Persistent) continue; // Persistente: fora do âmbito (3.x+).
+
+            // DIAGNÓSTICO da raiz do spam: para o Tornado, regista a chave do cooldown, há quanto foi
+            // marcada (SinceMs) e o cooldown exigido — para ver se a chave do Mark bate com a do Ready.
+            if (rule.SkillName == "TornadoShotPlayer")
+            {
+                var k = CdKey(rule, ctx);
+                CdDiag = $"cdDiag: key='{k}' since={_cd.SinceMs(k)}ms cdMs={CdMs(rule)} ready={_cd.Ready(k, CdMs(rule))} holdRule={(_holdRule?.SkillName ?? "null")}";
+            }
 
             if (!_cd.Ready(CdKey(rule, ctx), CdMs(rule))) continue;
             if (!RuleEvaluator.Evaluate(ctx, rule)) continue;
@@ -294,12 +303,11 @@ public sealed class GeneralRoutine : IRoutine
                 break;
 
             case HoldReleaseCondition.SkillUsed:
-                // ActorSkill confirma uso. Solta só quando a skill ENTROU EM COOLDOWN (IsOnCooldown) — a
-                // prova de que SAIU de verdade. NÃO usar IsUsing: é true no MESMO tick em que começa, o que
-                // faz soltar imediatamente e re-disparar no tick seguinte (loop de spam, ex.: Tornado).
-                // Precisa de ter segurado um mínimo (elapsed) p/ a skill arrancar antes de exigir cooldown.
+                // ActorSkill confirma uso. Exige um mínimo de 80ms a segurar ANTES de aceitar a confirmação
+                // (IsUsing fica true no MESMO tick em que começa → soltar logo → loop de spam). O elapsed>=80
+                // quebra o loop mantendo o sinal que funciona (correção mínima da auditoria, vuln 2).
                 var s = ctx.Find(rule.SkillName);
-                release = (s != null && elapsed >= 60 && s.IsOnCooldown) || targetGone;
+                release = (s != null && elapsed >= 80 && (s.IsUsing || s.IsOnCooldown)) || targetGone;
                 break;
 
             case HoldReleaseCondition.AnimationStage:
