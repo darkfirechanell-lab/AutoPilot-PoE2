@@ -235,9 +235,14 @@ public sealed class GeneralRoutine : IRoutine
     /// aparecer no mundo) sem disparar o commit prematuramente.</summary>
     private void MarkCooldown(SkillRule rule, RoutineContext ctx)
     {
-        _cd.Mark(CdKey(rule, ctx));
+        var k = CdKey(rule, ctx);
+        _cd.Mark(k);
         if (rule.EffectiveRuleId != rule.SkillName) _cd.Mark(rule.SkillName);
+        if (rule.SkillName == "TornadoShotPlayer")
+            MarkDiag = $"markDiag: marquei '{k}' ruleId='{rule.RuleId}' eff='{rule.EffectiveRuleId}'";
     }
+
+    public string MarkDiag { get; private set; } = ""; // o que o MarkCooldown marcou (Tornado).
 
     /// <summary>Chave do CooldownTracker: por REGRA (RuleId) ou por ALVO (RuleId@id) se PerTargetCooldownMs>0.
     /// Sem alvo, cai para a chave por-regra (não dá para distinguir alvo).</summary>
