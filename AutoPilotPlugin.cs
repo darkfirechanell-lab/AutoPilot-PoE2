@@ -375,8 +375,10 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
         {
             _ctx.TargetHardness = Combat.General.TargetHardness.Easy; // sem alvo: não filtra.
         }
-        // Range da deteção de entidades no chão (à volta do alvo). Usa o teu attack range — não o mapa todo.
-        _ctx.GroundRange = Settings.AttackRange.Value;
+        // Range da deteção de entidades no chão (à volta do alvo). PEQUENO de propósito (raio ~do tornado),
+        // NÃO o AttackRange (80) — senão, com 2 raros perto, o tornado de um bloqueava o lançamento no
+        // outro. Cada alvo só conta o tornado MESMO em cima dele. Configurável na secção Combate.
+        _ctx.GroundRange = Settings.Combat.GroundDetectRange.Value;
 
         // Fase 2: baseline. Só grava com a rotina Ice Shot selecionada (a referência verdadeira).
         var iceShotActive = Settings.Routine?.Value == "Ice Shot";

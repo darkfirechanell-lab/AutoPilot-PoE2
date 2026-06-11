@@ -56,16 +56,14 @@ public static class RuleEvaluator
         if (ctx.TargetHardness > rule.MaxHardness)
         { reason = $"dureza>{rule.MaxHardness}"; return false; }
 
-        // Entidade no chão (genérico): não usar se já há a entidade desta skill viva (uptime sem spam —
-        // tornado, sino, totem…). Procura à volta do JOGADOR E do ALVO: o tornado cai perto de ti/da
-        // mira, NÃO no alvo (procurar só no alvo falhava — o tornado ficava fora do raio do alvo).
-        if (rule.SkipIfGroundActive && !string.IsNullOrEmpty(rule.GroundEntityPath) && ctx.Ground != null)
-        {
-            var playerPos = ctx.Game?.Player?.GridPos ?? target.GridPos;
-            var perto = ctx.Ground.AnyNear(rule.GroundEntityPath, playerPos, ctx.GroundRange)
-                     || ctx.Ground.AnyNear(rule.GroundEntityPath, target.GridPos, ctx.GroundRange);
-            if (perto) { reason = $"'{rule.GroundEntityPath}' já no chão"; return false; }
-        }
+        // Entidade no chão (genérico): não usar se já há a entidade desta skill viva PERTO DESTE ALVO
+        // (uptime POR ALVO, sem spam). Procura à volta do ALVO — assim com 2 raros, cada um recebe o seu
+        // tornado (o do raro A não bloqueia o lançamento no raro B, que está longe). O tornado vai no alvo,
+        // por isso fica dentro do raio dele. Match por substring do path nas MiscellaneousObjects.
+        if (rule.SkipIfGroundActive && !string.IsNullOrEmpty(rule.GroundEntityPath)
+            && ctx.Ground != null
+            && ctx.Ground.AnyNear(rule.GroundEntityPath, target.GridPos, ctx.GroundRange))
+        { reason = $"'{rule.GroundEntityPath}' já no chão"; return false; }
 
         // Distância (com isenção de Unique se configurada).
         var dist = ctx.Target.Distance;

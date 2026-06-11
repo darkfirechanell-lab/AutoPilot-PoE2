@@ -148,6 +148,11 @@ public class CombatSettings
     [Menu("Cursor Range", "Quão perto o cursor tem de estar do alvo antes de usar skills.")]
     public RangeNode<float> CursorRange { get; set; } = new(20f, 1f, 100f);
 
+    [Menu("Deteção no chão: raio", "Raio (grid) à volta do alvo para detetar entidades no chão (tornado, " +
+        "sino…) e NÃO re-lançar. PEQUENO de propósito (~raio do tornado): com 2 raros perto, um raio grande " +
+        "faria o tornado de um bloquear o lançamento no outro. Cada alvo só conta o que está mesmo em cima.")]
+    public RangeNode<float> GroundDetectRange { get; set; } = new(25f, 5f, 100f);
+
     [Menu("C1: Só atacar com cursor no alvo", "Não dispara skills de dano (Ice Shot/Barrage) se o cursor não " +
         "estiver em cima do alvo. Usa a posição que o AIM calcula (sem lag). Não afeta Mark nem canais a decorrer.")]
     public ToggleNode RequireCursorOnTarget { get; set; } = new(false);
