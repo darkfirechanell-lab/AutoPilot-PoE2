@@ -427,7 +427,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
-                $"{_hardness.LastDebug}\n" +
+                $"{_hardness.LastDebug} | bossDiag: UniqueVistos={_entities.UniqueSeen} bloqueio={(_entities.UniqueBlockedReason == "" ? "(nenhum/entrou)" : _entities.UniqueBlockedReason)}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +

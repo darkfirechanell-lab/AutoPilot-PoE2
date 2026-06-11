@@ -50,6 +50,11 @@ public sealed class EntityCache
     /// <summary>Os monstros hostis válidos do tick atual (já filtrados). Não modificar de fora.</summary>
     public IReadOnlyList<TrackedEntity> Monsters => _monsters;
 
+    // DIAGNÓSTICO (boss não mirado): quantos Uniques apareceram na fonte este tick, e porque o 1º foi
+    // excluído (se foi). "0 elites no targeting" com UniqueSeen>0 = o boss entra mas é filtrado.
+    public int UniqueSeen { get; private set; }
+    public string UniqueBlockedReason { get; private set; } = "";
+
     /// <summary>Posição (grid) do jogador no momento do último <see cref="Rebuild"/>.</summary>
     public Vector2 PlayerGridPos => _playerGridPos;
 
@@ -77,9 +82,23 @@ public sealed class EntityCache
         if (source == null) return;
 
         _seenThisTick.Clear();
+        UniqueSeen = 0; UniqueBlockedReason = "";
         foreach (var entity in source)
         {
             var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
+
+            // DIAGNÓSTICO: o boss (Unique) entra na fonte mas pode ser filtrado. Conta os Uniques vistos
+            // e regista a RAZÃO de exclusão do 1º (porque "0 elites no targeting" = boss filtrado).
+            bool isUnique;
+            try { isUnique = entity.GetComponent<ExileCore2.PoEMemory.Components.ObjectMagicProperties>()?.Rarity == MonsterRarity.Unique; }
+            catch { isUnique = false; }
+            if (isUnique)
+            {
+                UniqueSeen++;
+                if (!IsValidTarget(entity, dist) && string.IsNullOrEmpty(UniqueBlockedReason))
+                    UniqueBlockedReason = WhyInvalid(entity, dist);
+            }
+
             if (!IsValidTarget(entity, dist)) continue;
 
             _seenThisTick.Add(entity.Id);
@@ -216,6 +235,31 @@ public sealed class EntityCache
         if (BuffsBlockCached(entity, checkProximal)) return false; // R1.5: cache TTL 250ms.
 
         return true;
+    }
+
+    /// <summary>DIAGNÓSTICO: a razão pela qual uma entidade falha o IsValidTarget (para o log do boss).</summary>
+    private string WhyInvalid(Entity entity, float distance)
+    {
+        try
+        {
+            if (entity == null) return "null";
+            if (!entity.IsValid) return "!IsValid";
+            if (!entity.IsAlive) return "!IsAlive";
+            if (entity.IsDead) return "IsDead";
+            if (!entity.IsTargetable) return "!IsTargetable";
+            if (entity.IsHidden) return "IsHidden";
+            if (!entity.IsHostile) return "!IsHostile";
+            var path = entity.Path;
+            if (path != null)
+                foreach (var prefix in ExcludedPrefixes)
+                    if (path.StartsWith(prefix, StringComparison.Ordinal)) return $"path:{prefix}";
+            var stats = entity.Stats;
+            if (stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1) return "CannotBeDamaged";
+            var checkProximal = distance > ProximalTangibilityRange;
+            if (BuffsBlockTarget(entity, checkProximal)) return checkProximal ? "buff-invuln/proximal" : "buff-invuln";
+            return $"dist={distance:F0}>range?"; // passou tudo aqui → exclusão é a jusante (range/peso/visibilidade)
+        }
+        catch { return "erro-leitura"; }
     }
 
     /// <summary>
