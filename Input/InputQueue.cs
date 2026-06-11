@@ -91,7 +91,9 @@ public sealed class InputQueue : IDisposable
 
         // NÃO aplicar o gate anti-kick aqui: um hold é uma ação CONTÍNUA (uma tecla premida), não spam.
         // O kick vem de TAPS repetidos depressa (o gate está no Tap). Bloquear o início de um hold
-        // partia o combo Barrage→Snipe (a máquina marcava o hold mas a tecla não era premida).
+        // partia o combo Barrage→Snipe (a máquina marcava o hold mas a tecla não era premida). O
+        // anti-spam do hold é feito A MONTANTE — no motor (cooldown por skill, fix do _cd.Clear), que
+        // sabe coordenar o _holdRule com o input. Aqui o InputQueue só executa, não decide ritmo.
         if (_heldKey != Keys.None) ReleaseHold();
 
         // Se a tecla tinha um tap pendente, cancela-o — o hold assume o controlo da tecla.
