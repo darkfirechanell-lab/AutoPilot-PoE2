@@ -50,11 +50,6 @@ public sealed class EntityCache
     /// <summary>Os monstros hostis válidos do tick atual (já filtrados). Não modificar de fora.</summary>
     public IReadOnlyList<TrackedEntity> Monsters => _monsters;
 
-    // DIAGNÓSTICO (boss não mirado): quantos Uniques apareceram na fonte este tick, e porque o 1º foi
-    // excluído (se foi). "0 elites no targeting" com UniqueSeen>0 = o boss entra mas é filtrado.
-    public int UniqueSeen { get; private set; }
-    public string UniqueBlockedReason { get; private set; } = "";
-
     /// <summary>Posição (grid) do jogador no momento do último <see cref="Rebuild"/>.</summary>
     public Vector2 PlayerGridPos => _playerGridPos;
 
@@ -82,23 +77,9 @@ public sealed class EntityCache
         if (source == null) return;
 
         _seenThisTick.Clear();
-        UniqueSeen = 0; UniqueBlockedReason = "";
         foreach (var entity in source)
         {
             var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
-
-            // DIAGNÓSTICO: o boss (Unique) entra na fonte mas pode ser filtrado. Conta os Uniques vistos
-            // e regista a RAZÃO de exclusão do 1º (porque "0 elites no targeting" = boss filtrado).
-            bool isUnique;
-            try { isUnique = entity.GetComponent<ExileCore2.PoEMemory.Components.ObjectMagicProperties>()?.Rarity == MonsterRarity.Unique; }
-            catch { isUnique = false; }
-            if (isUnique)
-            {
-                UniqueSeen++;
-                if (!IsValidTarget(entity, dist) && string.IsNullOrEmpty(UniqueBlockedReason))
-                    UniqueBlockedReason = WhyInvalid(entity, dist);
-            }
-
             if (!IsValidTarget(entity, dist)) continue;
 
             _seenThisTick.Add(entity.Id);
@@ -238,65 +219,6 @@ public sealed class EntityCache
     }
 
     /// <summary>DIAGNÓSTICO: a razão pela qual uma entidade falha o IsValidTarget (para o log do boss).</summary>
-    /// <summary>
-    /// DIAGNÓSTICO do boss não-mirado: procura entidades de raridade Unique em TODOS os EntityType (não só
-    /// Monster), mostrando onde estão (tipo + raridade + dist + se IsTargetable/IsHidden). Se o boss não
-    /// está em EntityType.Monster, o Rebuild (que só varre Monster) nunca o vê → elites=0.
-    /// </summary>
-    public string DiagBoss()
-    {
-        var found = new List<string>();
-        var player = _gc?.Player;
-        var pPos = player?.GridPos ?? default;
-        foreach (EntityType et in System.Enum.GetValues(typeof(EntityType)))
-        {
-            try
-            {
-                if (!_gc.EntityListWrapper.ValidEntitiesByType.TryGetValue(et, out var list) || list == null) continue;
-                foreach (var e in list)
-                {
-                    if (e == null || !e.IsValid) continue;
-                    MonsterRarity rar;
-                    try { rar = e.GetComponent<ExileCore2.PoEMemory.Components.ObjectMagicProperties>()?.Rarity ?? MonsterRarity.White; }
-                    catch { continue; }
-                    if (rar != MonsterRarity.Unique) continue;
-                    var d = Vector2.Distance(pPos, e.GridPos);
-                    bool tgt, hid; try { tgt = e.IsTargetable; hid = e.IsHidden; } catch { tgt = false; hid = true; }
-                    var path = (e.Path ?? "?").Replace("Metadata/", "");
-                    found.Add($"{et}:{path}@{d:F0} tgt={tgt} hid={hid}");
-                    if (found.Count >= 4) break;
-                }
-            }
-            catch { }
-            if (found.Count >= 4) break;
-        }
-        return found.Count == 0 ? "bossDiag: nenhum Unique em lado nenhum" : "bossDiag: " + string.Join(" | ", found);
-    }
-
-    private string WhyInvalid(Entity entity, float distance)
-    {
-        try
-        {
-            if (entity == null) return "null";
-            if (!entity.IsValid) return "!IsValid";
-            if (!entity.IsAlive) return "!IsAlive";
-            if (entity.IsDead) return "IsDead";
-            if (!entity.IsTargetable) return "!IsTargetable";
-            if (entity.IsHidden) return "IsHidden";
-            if (!entity.IsHostile) return "!IsHostile";
-            var path = entity.Path;
-            if (path != null)
-                foreach (var prefix in ExcludedPrefixes)
-                    if (path.StartsWith(prefix, StringComparison.Ordinal)) return $"path:{prefix}";
-            var stats = entity.Stats;
-            if (stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1) return "CannotBeDamaged";
-            var checkProximal = distance > ProximalTangibilityRange;
-            if (BuffsBlockTarget(entity, checkProximal)) return checkProximal ? "buff-invuln/proximal" : "buff-invuln";
-            return $"dist={distance:F0}>range?"; // passou tudo aqui → exclusão é a jusante (range/peso/visibilidade)
-        }
-        catch { return "erro-leitura"; }
-    }
-
     /// <summary>
     /// R1.5: BuffsBlockTarget COM cache (TTL 250ms). Reusa o resultado se o mesmo mob (id+Address) foi
     /// lido há &lt;250ms COM o mesmo checkProximal. Re-lê se: mob novo, TTL expirou, ou o checkProximal

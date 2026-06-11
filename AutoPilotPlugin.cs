@@ -430,7 +430,6 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
                 $"{_hardness.LastDebug}\n" +
-                $"{_entities.DiagBoss()}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
