@@ -35,18 +35,17 @@ public static class IceShotPreset
     {
         return new List<SkillRule>
         {
-            // Tornado Shot (PoE2): NÃO aplica blind (aplica Hinder) e dura 15s SEM cooldown. O seu valor
-            // é ser MULTIPLICADOR DE PROJÉTEIS — Ice Shot/Snipe disparados ATRAVÉS do tornado cospem 3
-            // cópias. Logo a lógica é "manter 1 tornado ATIVO" (re-lançar quando os ~15s acabam), não
-            // refrescar um debuff no alvo. Prioridade ALTA (entra antes do combo, p/ os projéteis depois
-            // passarem por ele). CooldownMs = uptime do tornado (~14s, re-lança antes de expirar).
-            // SEM gate de blind (era o bug: o boss tinha 'blinded' doutra fonte e travava o Tornado).
+            // Tornado Shot (PoE2): dura 15s, MULTIPLICADOR DE PROJÉTEIS (Ice Shot/Snipe ATRAVÉS dele
+            // cospem 3 cópias). Lógica = "manter 1 tornado ATIVO". MODELO DO AutoMyAim (LightningRodTracker):
+            // controla o uptime por TEMPO, não por deteção da entidade no chão (que falhava — o tornado cai
+            // perto da mira, fora do raio do alvo). CooldownMs = 14000 (~duração do tornado, re-lança ~1s
+            // antes de expirar) -> não relança enquanto o tornado anterior está vivo. Sem gate de blind nem
+            // de entidade. Prioridade ALTA (entra antes do combo p/ os projéteis passarem por ele).
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
-                GroundEntityPath = "TornadoShotTornado", SkipIfGroundActive = true, // só re-lança quando não há tornado vivo.
-                CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
+                CooldownMs = 14000,          // uptime por TEMPO (modelo AutoMyAim) — 1 tornado de cada vez.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Barrage = BUFF (não dano): um clique curto puxa o arco e dá o buff 'empower_barrage_visual'
