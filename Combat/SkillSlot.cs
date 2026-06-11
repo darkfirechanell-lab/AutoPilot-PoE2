@@ -23,12 +23,21 @@ public sealed class SkillSlot
     [Menu("Ativa", "Liga/desliga esta skill na rotação.")]
     public ToggleNode Enabled { get; set; } = new(true);
 
-    [Menu("Mostrar config", "Liga para ver/editar TODAS as regras '[Geral]' desta skill. Desliga e elas " +
-        "desaparecem (menu limpo). A configuração mantém-se guardada mesmo escondida.")]
+    [Menu("Mostrar config", "Liga para ver/editar as regras desta skill. Desliga e desaparecem (menu " +
+        "limpo). A configuração mantém-se guardada mesmo escondida.")]
     public ToggleNode ShowConfig { get; set; } = new(false);
 
-    /// <summary>Condição do ConditionalDisplay: mostra os campos [Geral] só quando ShowConfig está ligado.</summary>
+    [ConditionalDisplay(nameof(IsConfigVisible))]
+    [Menu("Mostrar avançado", "Liga para ver os campos AVANÇADOS (tempos finos, filtros de alvo, hold/" +
+        "charges, entidade no chão). Desligado, vês só o ESSENCIAL (tipo, raridade, dureza, buffs). A " +
+        "maioria das builds não precisa do avançado.")]
+    public ToggleNode ShowAdvanced { get; set; } = new(false);
+
+    /// <summary>ESSENCIAL: mostra os campos-chave quando 'Mostrar config' está ligado.</summary>
     public bool IsConfigVisible() => ShowConfig.Value;
+
+    /// <summary>AVANÇADO: mostra os campos finos só com 'Mostrar config' E 'Mostrar avançado' ligados.</summary>
+    public bool IsAdvancedVisible() => ShowConfig.Value && ShowAdvanced.Value;
 
     [Menu("Tecla", "Tecla a premir para esta skill. Auto-detetada da barra; podes mudar.")]
     public HotkeyNodeV2 Key { get; set; } = new(Keys.None);
@@ -49,16 +58,17 @@ public sealed class SkillSlot
     // Prioridade e Tap Hold também ficam aqui (escondidos atrás de 'Mostrar config'): por defeito cada
     // skill mostra só Ativa/Tecla/Mostrar config — menu limpo (pedido do utilizador 2026-06-05).
 
+    // ════════ ESSENCIAL — o que defines em quase todas as skills ════════
+
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Prioridade", "Ordem de avaliação na rotação. MAIOR = avaliada primeiro.")]
+    [Menu("[Geral] Prioridade", "Ordem na rotação: MAIOR = avaliada PRIMEIRO. Ex.: Tornado=100 (abre o " +
+        "combo), Barrage=90, Snipe=80, Ice Shot=10 (filler, último). Empate = ordem na lista.")]
     public RangeNode<int> Priority { get; set; } = new(0, 0, 100);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Tap Hold (ms)", "Gap entre KeyDown e KeyUp para esta skill. Para skills que precisam de mais tempo a registar.")]
-    public RangeNode<int> TapHoldMs { get; set; } = new(12, 1, 200);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Tipo de uso", "Tap = um toque; Hold = segura até confirmar; Buff = sem alvo; Persistente = em movimento.")]
+    [Menu("[Geral] Tipo de uso", "COMO a skill é acionada. Tap = um toque (Ice Shot, Barrage). " +
+        "Hold = segura a tecla até confirmar que saiu (Snipe canalizado, Mark até pegar). " +
+        "Buff = usa sem precisar de alvo (auras). Persistente = premida em movimento.")]
     public ListNode UseType { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string> { "Tap", "Hold", "Buff", "Persistent" },
@@ -66,27 +76,37 @@ public sealed class SkillSlot
     };
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Cooldown (ms)", "Cooldown interno anti-spam desta skill no motor Geral.")]
+    [Menu("[Geral] Cooldown (ms)", "Anti-spam: espera ESTE tempo antes de re-usar a skill. " +
+        "Ex.: Mark=1000 (não remarca todo o tick); Ice Shot=50 (filler rápido). 0 = sem limite.")]
     public RangeNode<int> CooldownMs { get; set; } = new(0, 0, 10000);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Commit animação (ms)", "Após esta skill disparar, NENHUMA outra skill dispara durante " +
-        "este tempo — protege a animação de ser cortada (ex.: Barrage ~500ms; se outra skill entra a meio, " +
-        "a animação corta e o Barrage falha). 0 = sem proteção.")]
+    // ════════ AVANÇADO — TEMPOS finos (raro mexer) ════════
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Commit animação (ms)", "Após ESTA skill disparar, NENHUMA outra dispara durante este " +
+        "tempo — protege a animação de ser cortada. Ex.: Barrage=400 (senão a skill seguinte corta a " +
+        "puxada do arco e o buff falha). 0 = sem proteção (o normal).")]
     public RangeNode<int> CommitMs { get; set; } = new(0, 0, 2000);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Cooldown POR ALVO (ms)", "Só re-usa a skill contra o MESMO mob após este tempo, mas pode " +
-        "usá-la JÁ contra outro mob. Ex.: Tornado 1x por raro (~14000): lança no raro A e pode lançar já no " +
-        "raro B, sem esperar. 0 = usa o Cooldown normal (global). Substitui o Cooldown quando > 0.")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Tap Hold (ms)", "Quanto tempo a tecla fica premida num Tap (gap KeyDown→KeyUp). " +
+        "Default 12 chega quase sempre. Sobe só se uma skill não regista o toque.")]
+    public RangeNode<int> TapHoldMs { get; set; } = new(12, 1, 200);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Cooldown POR ALVO (ms)", "Variante do Cooldown: conta por MOB (não global). Re-usa a " +
+        "skill no MESMO mob só após este tempo, mas pode usá-la JÁ noutro mob. Substitui o Cooldown quando " +
+        ">0. Raro precisar. 0 = usa o Cooldown normal (o que queres quase sempre).")]
     public RangeNode<int> PerTargetCooldownMs { get; set; } = new(0, 0, 30000);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Atacar parado (Shift)", "Segura Shift ao usar = ataca sem andar para o cursor (build de arco).")]
+    [Menu("[Geral] Atacar parado (Shift)", "Segura Shift ao usar = ataca PARADO, sem andar para o cursor " +
+        "(essencial nas builds de arco para não te moveres ao disparar).")]
     public ToggleNode AttackInPlace { get; set; } = new(false);
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Raridade mínima do alvo", "Só usa contra esta raridade e acima.")]
+    [Menu("[Geral] Raridade mínima do alvo", "Só usa contra esta raridade e ACIMA. Ex.: 'Rare+' = só " +
+        "rares/uniques (combo); 'Qualquer' = todos (filler como o Ice Shot).")]
     public ListNode MinRarity { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string> { "Qualquer", "Magic+", "Rare+", "Só Unique", "Só Normal" },
@@ -113,84 +133,106 @@ public sealed class SkillSlot
         Value = "Tank",
     };
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Unique ignora alcance", "Bosses/Uniques são sempre alvo válido mesmo além do alcance.")]
-    public ToggleNode IgnoreRangeForUnique { get; set; } = new(false);
+    // ── BUFFS / DEBUFFS (gates importantes — ficam no essencial) ──
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Dist. mínima", "Distância mínima ao alvo (grid). 0 = sem mínimo.")]
-    public RangeNode<float> MinDistance { get; set; } = new(0f, 0f, 200f);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Dist. máxima", "Distância máxima ao alvo (grid). 0 = sem máximo.")]
-    public RangeNode<float> MaxDistance { get; set; } = new(0f, 0f, 200f);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] HP alvo mín %", "Só usa se o HP% do alvo é >= isto. 0 = ignora.")]
-    public RangeNode<float> TargetHpMin { get; set; } = new(0f, 0f, 1f);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] HP alvo máx %", "Só usa se o HP% do alvo é <= isto. 1 = ignora (ex.: 0.1 = culling).")]
-    public RangeNode<float> TargetHpMax { get; set; } = new(1f, 0f, 1f);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Mobs perto (N)", "Só usa se há >= N mobs perto do alvo (AoE/packs). 0 = ignora.")]
-    public RangeNode<int> CloseTargets { get; set; } = new(0, 0, 30);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Raio mobs perto", "Raio para contar mobs perto do alvo.")]
-    public RangeNode<float> CloseTargetsRange { get; set; } = new(10f, 1f, 100f);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Alvo TEM buff", "Nome interno do buff/debuff que o ALVO tem de ter (ex.: frozen). Vazio = ignora.")]
+    [Menu("[Geral] Alvo TEM buff", "Só usa se o ALVO tem este buff/debuff. Ex.: 'frozen' no Snipe (combo " +
+        "só sai com o alvo congelado). Vazio = ignora. Nome interno do jogo (vê no plugin Dev/buffnames).")]
     public TextNode TargetHasBuff { get; set; } = new("");
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Alvo SEM buff", "Nome do buff/debuff que o alvo NÃO pode ter (ex.: freezing_mark). Vazio = ignora.")]
+    [Menu("[Geral] Alvo SEM buff", "Só usa se o alvo NÃO tem este buff. Ex.: 'freezing_mark' na Mark (não " +
+        "remarca quem já está marcado). Vazio = ignora.")]
     public TextNode TargetMissingBuff { get; set; } = new("");
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Entidade no chão (path)", "Nome/path da entidade que esta skill cria no chão (ex.: " +
-        "TornadoShotTornado, um sino, um totem). Basta a parte final do path (substring). Combina com " +
-        "'Não usar se já no chão'. Vazio = ignora. Descobre o path no plugin Dev/inspector de entidades.")]
-    public TextNode GroundEntityPath { get; set; } = new("");
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Não usar se já no chão", "Não re-lança a skill enquanto a 'Entidade no chão' acima já " +
-        "existe viva perto do alvo (uptime sem spam — ex.: não re-lançar o tornado/sino enquanto há um).")]
-    public ToggleNode SkipIfGroundActive { get; set; } = new(false);
-
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Player TEM buff", "Nome do buff que o PLAYER tem de ter. Vazio = ignora.")]
+    [Menu("[Geral] Player TEM buff", "Só usa se TU tens este buff. Vazio = ignora.")]
     public TextNode PlayerHasBuff { get; set; } = new("");
 
     [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Player SEM buff", "Nome do buff que o player NÃO pode ter (ex.: shearing_bolts). Vazio = ignora.")]
+    [Menu("[Geral] Player SEM buff", "Só usa se TU NÃO tens este buff (uptime sem spam). Ex.: " +
+        "'empower_barrage_visual' no Barrage (só re-clica quando o buff cai); 'shearing_bolts' no " +
+        "Ice-Tipped. Vazio = ignora.")]
     public TextNode PlayerMissingBuff { get; set; } = new("");
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Boss ignora 'Player SEM buff'", "Para a Mark: no BOSS marca mesmo com o buff de dano ativo " +
-        "(ignora 'Player SEM buff'); fora do boss respeita-o. Reproduz a regra da Mark.")]
+    // ════════ AVANÇADO — FILTROS DE ALVO finos ════════
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Unique ignora alcance", "Bosses/Uniques são alvo válido MESMO além do alcance configurado " +
+        "(para o aim não desistir do boss quando ele se afasta).")]
+    public ToggleNode IgnoreRangeForUnique { get; set; } = new(false);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Dist. mínima", "Só usa se o alvo está a ESTA distância ou MAIS (grid). 0 = sem mínimo. " +
+        "Útil para skills que precisam de espaço.")]
+    public RangeNode<float> MinDistance { get; set; } = new(0f, 0f, 200f);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Dist. máxima", "Só usa se o alvo está a ESTA distância ou MENOS (grid). 0 = sem máximo.")]
+    public RangeNode<float> MaxDistance { get; set; } = new(0f, 0f, 200f);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] HP alvo mín %", "Só usa se o HP% do alvo é >= isto (0..1). 0 = ignora.")]
+    public RangeNode<float> TargetHpMin { get; set; } = new(0f, 0f, 1f);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] HP alvo máx %", "Só usa se o HP% do alvo é <= isto (0..1). 1 = ignora. Ex.: 0.1 = só " +
+        "remata mobs abaixo de 10% (culling/finisher).")]
+    public RangeNode<float> TargetHpMax { get; set; } = new(1f, 0f, 1f);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Mobs perto (N)", "Só usa se há >= N mobs num raio do alvo (para AoE em packs). 0 = ignora.")]
+    public RangeNode<int> CloseTargets { get; set; } = new(0, 0, 30);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Raio mobs perto", "O raio para contar os 'Mobs perto (N)' acima.")]
+    public RangeNode<float> CloseTargetsRange { get; set; } = new(10f, 1f, 100f);
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Boss ignora 'Player SEM buff'", "No BOSS, ignora o gate 'Player SEM buff' (usa mesmo com o " +
+        "buff ativo); fora do boss respeita-o. Reproduz a regra da Mark (remarca sempre no boss).")]
     public ToggleNode BossIgnoresPlayerMissingBuff { get; set; } = new(false);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Buff de charges", "Nome do buff cujas charges são contadas (ex.: skill_seals). Vazio = ignora.")]
+    // ════════ AVANÇADO — ENTIDADE NO CHÃO (tornado, sino, totem) ════════
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Entidade no chão (path)", "Path da entidade que esta skill cria no chão (ex.: " +
+        "TornadoShotTornado). Basta a parte final (substring). Combina com 'Não usar se já no chão'. " +
+        "Descobre o path no plugin Dev. Vazio = ignora.")]
+    public TextNode GroundEntityPath { get; set; } = new("");
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Não usar se já no chão", "Não re-lança enquanto a 'Entidade no chão' acima já existe perto " +
+        "do alvo (uptime sem spam — ex.: 1 tornado por raro). Precisa do path acima preenchido.")]
+    public ToggleNode SkipIfGroundActive { get; set; } = new(false);
+
+    // ════════ AVANÇADO — CHARGES e COMBO (encadeamento) ════════
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Buff de charges", "Nome do buff cujas CHARGES são contadas (ex.: skill_seals do Salvo). " +
+        "Combina com 'Charges mín'. Vazio = ignora.")]
     public TextNode ChargeBuff { get; set; } = new("");
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Charges mín", "Mínimo de charges do buff acima para usar a skill.")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Charges mín", "Só usa se tens >= ESTE número de charges do buff acima (ex.: Salvo com >= 10 seals).")]
     public RangeNode<int> ChargeMin { get; set; } = new(0, 0, 30);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Depois da skill", "Nome de memória da skill-âncora: só dispara DEPOIS dela (combo). Vazio = livre.")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Depois da skill", "COMBO: só dispara DEPOIS de outra skill ter saído. Nome de memória da " +
+        "skill-âncora (ex.: BarragePlayer no Snipe). Combina com 'Atraso após âncora'. Vazio = livre.")]
     public TextNode AfterSkill { get; set; } = new("");
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Atraso após âncora (ms)", "Tempo a esperar após a skill-âncora antes de disparar (ex.: 400 p/ Barrage→Snipe).")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Atraso após âncora (ms)", "Quanto esperar após a skill-âncora antes de disparar. Ex.: 400 " +
+        "no Snipe (entra durante a janela do empower do Barrage).")]
     public RangeNode<int> AfterSkillDelayMs { get; set; } = new(0, 0, 3000);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Soltar hold quando", "Como confirmar que a skill (Hold) saiu, para largar a tecla.")]
+    // ════════ AVANÇADO — HOLD (como largar a tecla) ════════
+
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Soltar hold quando", "Só para Tipo de uso=Hold. COMO confirmar que a skill saiu, para " +
+        "largar a tecla: Timeout (tempo), Buff no alvo/player (aparece o buff), Charges baixam, Skill usada " +
+        "(o jogo confirma), Stage animação (ex.: Snipe chega ao stage de tiro).")]
     public ListNode ReleaseWhen { get; set; } = new()
     {
         Values = new System.Collections.Generic.List<string>
@@ -198,16 +240,18 @@ public sealed class SkillSlot
         Value = "Timeout",
     };
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Buff p/ soltar", "Nome do buff para 'Buff no alvo/player' ou 'Charges baixam'.")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Buff p/ soltar", "O nome do buff para 'Soltar hold quando' = Buff no alvo/player ou Charges baixam.")]
     public TextNode ReleaseBuffName { get; set; } = new("");
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Stage p/ soltar", "Stage de animação para 'Stage animação' (ex.: Snipe = 21).")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Stage p/ soltar", "O stage de animação para 'Soltar hold quando' = Stage animação " +
+        "(ex.: Snipe solta no stage 21 = o tiro). Só relevante nesse modo.")]
     public RangeNode<int> ReleaseAnimationStage { get; set; } = new(0, 0, 50);
 
-    [ConditionalDisplay(nameof(IsConfigVisible))]
-    [Menu("[Geral] Timeout do hold (ms)", "Tempo máximo a segurar antes de soltar à força (rede de segurança).")]
+    [ConditionalDisplay(nameof(IsAdvancedVisible))]
+    [Menu("[Geral] Timeout do hold (ms)", "Rede de segurança: tempo MÁXIMO a segurar antes de largar à força " +
+        "(se a condição de soltar nunca der). Default 500 chega; Snipe canalizado usa mais (2000).")]
     public RangeNode<int> ReleaseTimeoutMs { get; set; } = new(500, 50, 3000);
 
     // ── REGRA 2 (F2) — 2ª regra da MESMA skill, momento diferente. Só os campos que costumam MUDAR entre
