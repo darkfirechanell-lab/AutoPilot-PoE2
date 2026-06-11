@@ -63,10 +63,12 @@ public sealed class InputQueue : IDisposable
         // Se esta tecla está presa como hold, termina o hold — o tap é uma intenção diferente.
         if (_heldKey == key) ReleaseHold();
 
-        // Tap atómico: KeyDown, pequeno gap para o jogo registar, KeyUp.
+        // KeyDown agora; KeyUp AGENDADO para daqui a holdMs (libertado pelo Pump, no relógio real). SEM
+        // Thread.Sleep — o Sleep congelava o tick inteiro do ExileCore (roubava FPS). É exatamente o
+        // mecanismo que o _pendingTapRelease/Pump foram feitos para fazer; o Tap antigo não o usava.
         ExileCore2.Input.KeyDown(key);
-        System.Threading.Thread.Sleep(5);
-        ExileCore2.Input.KeyUp(key);
+        var releaseAt = DateTime.UtcNow.Ticks + Math.Max(1, holdMs) * TimeSpan.TicksPerMillisecond;
+        _pendingTapRelease[key] = releaseAt;
         _lastActionTicks = DateTime.UtcNow.Ticks;
     }
 
