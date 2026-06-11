@@ -66,6 +66,12 @@ public sealed class GeneralRoutine : IRoutine
 
     public string Debug { get; private set; } = "";
 
+    // DIAGNÓSTICO de fluidez: conta porque o motor NÃO disparou neste tick (pausa). Quantos ticks seguidos
+    // em cada estado bloqueante → mostra a fonte da pausa (commit / waiting do combo / hold / nada).
+    private int _idleTicks;       // ticks seguidos sem disparar nada.
+    private string _idleReason = "";
+    public string FluidezDebug { get; private set; } = "";
+
     public void Execute(RoutineContext ctx)
     {
         if (ctx == null) return;
@@ -74,6 +80,7 @@ public sealed class GeneralRoutine : IRoutine
         if (_holdRule != null)
         {
             ContinueHold(ctx);
+            NoteIdle($"hold:{_holdRule.SkillName}");
             return;
         }
 
@@ -86,6 +93,7 @@ public sealed class GeneralRoutine : IRoutine
             {
                 var restamMs = (_commitUntilTicks - now) / TimeSpan.TicksPerMillisecond;
                 Debug = $"geral: commit {_commitSkill} ({restamMs}ms restantes)";
+                NoteIdle($"commit:{_commitSkill}");
                 return;
             }
             _commitUntilTicks = 0; _commitSkill = ""; // commit terminou.
@@ -107,6 +115,7 @@ public sealed class GeneralRoutine : IRoutine
                 // A âncora saiu mas o delay ainda não passou. ESPERA — não dispara esta nem nada de menor
                 // prioridade (senão um filler entrava no meio e estragava o combo). Pára o tick aqui.
                 Debug = $"geral: aguarda {rule.AfterSkillDelayMs}ms apos {rule.AfterSkill} p/ {rule.SkillName}";
+                NoteIdle($"waiting:{rule.SkillName}<-{rule.AfterSkill}");
                 return;
             }
 
@@ -122,6 +131,7 @@ public sealed class GeneralRoutine : IRoutine
             {
                 BeginHold(ctx, rule, key);
                 Debug = $"geral: HOLD {rule.SkillName} (p{rule.Priority})";
+                NoteFired();
                 return;
             }
 
@@ -129,10 +139,29 @@ public sealed class GeneralRoutine : IRoutine
             ctx.Skills.Tap(key, slot.TapHoldMs.Value);
             MarkUsed(rule);
             Debug = $"geral: TAP {rule.SkillName} (p{rule.Priority})";
+            NoteFired();
             return;
         }
 
         Debug = "geral: (nada)";
+        NoteIdle("nada");
+    }
+
+    /// <summary>Marca que o motor DISPAROU: zera o contador de idle.</summary>
+    private void NoteFired()
+    {
+        if (_idleTicks > 0)
+            FluidezDebug = $"fluidez: parou {_idleTicks} ticks em '{_idleReason}' antes de disparar";
+        else
+            FluidezDebug = "fluidez: disparo imediato";
+        _idleTicks = 0; _idleReason = "";
+    }
+
+    /// <summary>Marca um tick BLOQUEADO (não disparou) e porquê — para medir a pausa.</summary>
+    private void NoteIdle(string reason)
+    {
+        if (reason == _idleReason) _idleTicks++;
+        else { _idleReason = reason; _idleTicks = 1; }
     }
 
     private enum Chain { None, NotYetUsed, Waiting, Ready }

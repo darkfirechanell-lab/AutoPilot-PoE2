@@ -673,7 +673,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             case StaffRoutine staff:
                 return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.ThunderDebug}\n{staff.FillerDebug}";
             case GeneralRoutine gen:
-                return gen.Debug;
+                return $"{gen.Debug}\n{gen.FluidezDebug}";
             default:
                 return "";
         }
