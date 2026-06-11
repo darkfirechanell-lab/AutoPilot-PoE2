@@ -23,6 +23,9 @@ public sealed class SkillSlot
     [Menu("Ativa", "Liga/desliga esta skill na rotação.")]
     public ToggleNode Enabled { get; set; } = new(true);
 
+    [Menu("Tecla", "Tecla a premir para esta skill. Auto-detetada da barra; podes mudar.")]
+    public HotkeyNodeV2 Key { get; set; } = new(Keys.None);
+
     [Menu("Mostrar config", "Liga para ver/editar as regras desta skill. Desliga e desaparecem (menu " +
         "limpo). A configuração mantém-se guardada mesmo escondida.")]
     public ToggleNode ShowConfig { get; set; } = new(false);
@@ -38,9 +41,6 @@ public sealed class SkillSlot
 
     /// <summary>AVANÇADO: mostra os campos finos só com 'Mostrar config' E 'Mostrar avançado' ligados.</summary>
     public bool IsAdvancedVisible() => ShowConfig.Value && ShowAdvanced.Value;
-
-    [Menu("Tecla", "Tecla a premir para esta skill. Auto-detetada da barra; podes mudar.")]
-    public HotkeyNodeV2 Key { get; set; } = new(Keys.None);
 
     // ── REGRA EXTRA (F2): uma 2ª regra para a MESMA skill, para momentos diferentes (ex.: Barrage em
     // Medium sem frozen + Barrage no Tank/boss com frozen). Liga o toggle e aparece um 2º bloco LIMPO.
