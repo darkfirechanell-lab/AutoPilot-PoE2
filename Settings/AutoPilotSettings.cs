@@ -149,9 +149,10 @@ public class CombatSettings
     public RangeNode<float> CursorRange { get; set; } = new(20f, 1f, 100f);
 
     [Menu("Deteção no chão: raio", "Raio (grid) à volta do alvo para detetar entidades no chão (tornado, " +
-        "sino…) e NÃO re-lançar. PEQUENO de propósito (~raio do tornado): com 2 raros perto, um raio grande " +
-        "faria o tornado de um bloquear o lançamento no outro. Cada alvo só conta o que está mesmo em cima.")]
-    public RangeNode<float> GroundDetectRange { get; set; } = new(25f, 5f, 100f);
+        "sino…) e NÃO re-lançar. Os tornados espalham até ~55 do alvo (dados do log), por isso 60 cobre-os. " +
+        "Se 2 raros estão a < este raio um do outro, o tornado de um pode bloquear o outro — baixa se isso " +
+        "acontecer; sobe se o Tornado ainda spamma (não apanha o tornado já lá).")]
+    public RangeNode<float> GroundDetectRange { get; set; } = new(60f, 5f, 150f);
 
     [Menu("C1: Só atacar com cursor no alvo", "Não dispara skills de dano (Ice Shot/Barrage) se o cursor não " +
         "estiver em cima do alvo. Usa a posição que o AIM calcula (sem lag). Não afeta Mark nem canais a decorrer.")]

@@ -35,17 +35,18 @@ public static class IceShotPreset
     {
         return new List<SkillRule>
         {
-            // Tornado Shot (PoE2): dura 15s, MULTIPLICADOR DE PROJÉTEIS. Lógica = "1 lançamento por RARO".
-            // Cada lançamento faz 3 tornados (3 setas do arco) espalhados @21-50 do alvo, por isso contar
-            // tornados no chão (range) não serve. Modelo: COOLDOWN POR ALVO (PerTargetCooldownMs) — lança
-            // no raro A, e pode lançar JÁ no raro B (id diferente), mas não re-lança no A enquanto < 14s.
-            // Reusa o CooldownTracker com chave RuleId@id. Best-effort (sticky pode oscilar → no pior caso
-            // 1 Tornado extra, tolerável). SEM gate de range/entidade (falhava: tornados fora do raio).
+            // Tornado Shot (PoE2): dura 15s, MULTIPLICADOR DE PROJÉTEIS. DETEÇÃO NO ALVO (o que o user
+            // pediu): não re-lança se já há um tornado vivo PERTO DO ALVO. Os dados do log mostram que os
+            // tornados caem a 0-55 do alvo (a maioria 0-35), por isso o raio de deteção tem de ser ~60 —
+            // o raio de 25 cortava metade e por isso falhava. Cada lançamento faz 3 tornados (3 setas), mas
+            // basta detetar 1 perto do alvo para saber que já lá está. CooldownMs curto = anti-duplo-disparo
+            // no mesmo instante; a deteção é o gate real.
             new()
             {
                 SkillName = TORNADO, UseType = SkillUseType.Hold, Priority = 100,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Easy,
-                PerTargetCooldownMs = 14000, // 1 Tornado por raro a cada ~14s (≈ duração do tornado).
+                GroundEntityPath = "TornadoShotTornado", SkipIfGroundActive = true, // deteta o tornado no alvo.
+                CooldownMs = 800,
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
             // Barrage = BUFF (não dano): um clique curto puxa o arco e dá o buff 'empower_barrage_visual'
