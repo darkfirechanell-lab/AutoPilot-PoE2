@@ -28,6 +28,7 @@ public static class IceShotPreset
     private const string MARK_ON_ENEMY = "freezing_mark";
     private const string MARK_PLAYER_BUFF = "freezing_mark_damage_buff";
     private const string SALVO_SEALS = "skill_seals";
+    private const string BARRAGE_BUFF = "empower_barrage_visual"; // buff que o Barrage dá (confirmado nos logs).
 
     /// <summary>Constrói as regras de gelo no modelo genérico (ordem por prioridade decrescente).</summary>
     public static List<SkillRule> Build()
@@ -48,27 +49,25 @@ public static class IceShotPreset
                 CooldownMs = 800,            // anti-duplo-disparo no mesmo instante; a deteção é o gate real.
                 ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 500,
             },
-            // Barrage tem DUAS regras (a "2 formas" pedida). HOLD: segura a tecla ATÉ o ActorSkill
-            // confirmar o uso (ReleaseWhen=SkillUsed → solta em use=1/cd=1, NÃO timeout cego de 500ms).
-            // No log o Barrage mostra use=1/cd=1, por isso o SkillUsed deteta-o. O CommitMs protege a
-            // animação DEPOIS de soltar (a skill seguinte não a corta).
+            // Barrage = BUFF (não dano): um clique curto puxa o arco e dá o buff 'empower_barrage_visual'
+            // por uns segundos, que empodera os tiros seguintes. Logo: TAP (clique único — não Hold, que
+            // o prendia e não completava, n=0). CommitMs protege a animação curta de ser cortada pela
+            // skill seguinte. PlayerMissingBuff = só re-clica quando o buff JÁ NÃO existe (não spamma).
             //
             // Regra A — Barrage no MEDIUM (só Medium, NÃO Tank): sai SEM frozen contra rares médios.
             new()
             {
-                SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
+                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
                 MinRarity = TargetRarity.RarePlus,
                 MinHardness = TargetHardness.Medium, MaxHardness = TargetHardness.Medium,
-                CooldownMs = 800, CommitMs = 400,
-                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
+                PlayerMissingBuff = BARRAGE_BUFF, CommitMs = 400,
             },
             // Regra B — Barrage no TANK/BOSS: SÓ com frozen (parte do combo). O empower alimenta o Snipe.
             new()
             {
-                SkillName = BARRAGE, UseType = SkillUseType.Hold, Priority = 90,
+                SkillName = BARRAGE, UseType = SkillUseType.Tap, Priority = 90,
                 MinRarity = TargetRarity.RarePlus, MinHardness = TargetHardness.Tank,
-                TargetHasBuff = FROZEN, CooldownMs = 800, CommitMs = 400,
-                ReleaseWhen = HoldReleaseCondition.SkillUsed, ReleaseTimeoutMs = 600,
+                TargetHasBuff = FROZEN, PlayerMissingBuff = BARRAGE_BUFF, CommitMs = 400,
             },
             // Snipe: só no TANK (ou boss) e SÓ quando o alvo está FROZEN — é o burst do combo congelado
             // (Barrage → Snipe). Entra durante o empower do Barrage (AfterSkill + delay).
