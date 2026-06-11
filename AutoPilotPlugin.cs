@@ -429,12 +429,11 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
                 $"{SkillUseDebugLine()}\n" +
                 $"alvoBuffs: {BuffNamesLine(_currentTarget?.Entity)}\n" +
                 $"alvoMods: {ModNamesLine(_currentTarget?.Entity)}\n" +
-                $"{_hardness.LastDebug} | bossDiag: UniqueVistos={_entities.UniqueSeen} bloqueio={(_entities.UniqueBlockedReason == "" ? "(nenhum/entrou)" : _entities.UniqueBlockedReason)}\n" +
+                $"{_hardness.LastDebug}\n" +
                 $"playerBuffs: {BuffNamesLine(GameController?.Player)}\n" +
                 $"{EvaluatorObserveLine()}\n" +
                 $"{_danger.Debug} | {_dodge.Debug}\n" +
-                $"playerAnim {_animation.DebugLine()}\n" +
-                $"{_ground.DiagGate("TornadoShotTornado", _currentTarget?.Entity?.GridPos ?? GameController.Player.GridPos, Settings.Combat.GroundDetectRange.Value)}");
+                $"playerAnim {_animation.DebugLine()}");
         }
     }
 
@@ -677,7 +676,7 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             case StaffRoutine staff:
                 return $"{staff.ComboDebug}\n{staff.MaintenanceDebug}\n{staff.ThunderDebug}\n{staff.FillerDebug}";
             case GeneralRoutine gen:
-                return $"{gen.Debug}\n{gen.FluidezDebug}\n{gen.CdDiag}\n{gen.MarkDiag}";
+                return gen.Debug;
             default:
                 return "";
         }
