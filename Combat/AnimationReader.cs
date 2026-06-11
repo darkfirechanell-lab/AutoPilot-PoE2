@@ -25,6 +25,11 @@ public sealed class AnimationReader
     public float Progress { get; private set; }
     public string Action { get; private set; } = "";
 
+    /// <summary>Quanto FALTA (ms) para a animação atual acabar (API AnimationCompletesIn). -1 se ilegível.</summary>
+    public double CompletesInMs { get; private set; } = -1;
+    /// <summary>Há quanto tempo (ms) a animação atual corre (API AnimationActiveFor). -1 se ilegível.</summary>
+    public double ActiveForMs { get; private set; } = -1;
+
     public AnimationReader(GameController gameController)
     {
         _gc = gameController;
@@ -37,6 +42,8 @@ public sealed class AnimationReader
         AnimationId = -1;
         Progress = 0f;
         Action = "";
+        CompletesInMs = -1;
+        ActiveForMs = -1;
 
         var player = _gc?.Player;
         if (player == null) return;
@@ -50,11 +57,14 @@ public sealed class AnimationReader
         try { Stage = ac.CurrentAnimationStage; } catch { }
         try { AnimationId = ac.CurrentAnimationId; } catch { }
         try { Progress = ac.AnimationProgress; } catch { }
+        try { CompletesInMs = ac.AnimationCompletesIn.TotalMilliseconds; } catch { }
+        try { ActiveForMs = ac.AnimationActiveFor.TotalMilliseconds; } catch { }
     }
 
     /// <summary>True se o estágio de animação atingiu o ponto de release (para skills canalizadas).</summary>
     public bool StageReached(int releaseStage) => Stage >= releaseStage;
 
     /// <summary>Resumo legível para o HUD debug — os 3 sinais lado a lado.</summary>
-    public string DebugLine() => $"anim id={AnimationId} stage={Stage} progress={Progress:F2} action={Action}";
+    public string DebugLine() => $"anim id={AnimationId} stage={Stage} progress={Progress:F2} " +
+        $"completesIn={CompletesInMs:F0}ms activeFor={ActiveForMs:F0}ms action={Action}";
 }
