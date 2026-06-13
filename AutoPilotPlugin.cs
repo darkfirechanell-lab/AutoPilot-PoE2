@@ -590,7 +590,21 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
             if (!Settings.Enable) return;
             if (GameController is not { InGame: true, Player: not null }) return;
 
-            // Só desenha quando o aim está ativo (evita poluir o ecrã quando não estás a combater).
+            // Marca de Proximal Tangibility: desenha SEMPRE (independe do aim) — é awareness, ajuda a
+            // saber a quem te tens de aproximar. Desenhada antes do gate do aim, com o snapshot deste tick.
+            // Anel NO CHÃO à volta do mob (aura), seguindo o terreno — DrawCircleInWorld(followTerrain=true).
+            // Raio em unidades de mundo (~3x o corpo do mob = aura larga e bem visível).
+            if (Settings.MarkProximal.Value && _entities != null)
+                foreach (var p in _entities.ProximalEntities)
+                {
+                    if (p?.Entity == null) continue;
+                    var color = p.Immune
+                        ? System.Drawing.Color.FromArgb(230, 230, 50, 230)
+                        : System.Drawing.Color.FromArgb(230, 50, 230, 200);
+                    Graphics.DrawCircleInWorld(p.Entity.Pos, 40f, color, 4f, 48, true);
+                }
+
+            // Só desenha o resto (alvo/debug) quando o aim está ativo (evita poluir o ecrã fora de combate).
             var aimActive = _aimToggled || ExileCore2.Input.GetKeyState(Settings.AimKey.Value);
             if (!aimActive && !Settings.ShowDebug.Value) return;
 

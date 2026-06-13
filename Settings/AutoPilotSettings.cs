@@ -92,6 +92,7 @@ public class AutoPilotSettings : ISettings
 
     [IgnoreMenu, JsonIgnore] public RangeNode<float> AttackRange => Combat.AttackRange;
     [IgnoreMenu, JsonIgnore] public RangeNode<float> ProximalRange => Combat.ProximalRange;
+    [IgnoreMenu, JsonIgnore] public ToggleNode MarkProximal => Combat.MarkProximal;
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Combat.PauseOnPanels;
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Combat.GeneralUseUiRules;
     [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Combat.LoadIceShotPreset;
@@ -144,6 +145,10 @@ public class CombatSettings
     [Menu("Proximal Tangibility: alcance", "Mobs com o mod 'Proximal Tangibility' são imunes à distância. " +
         "Só são mirados quando estás MAIS PERTO que isto. Se o boss não for atacado já perto, AUMENTA.")]
     public RangeNode<float> ProximalRange { get; set; } = new(25f, 5f, 100f);
+
+    [Menu("Proximal Tangibility: marca no ecrã", "Desenha um anel em cada mob com o mod Proximal Tangibility. " +
+        "Magenta = imune (estás longe demais); ciano = já estás perto e atacável.")]
+    public ToggleNode MarkProximal { get; set; } = new(true);
 
     [Menu("Cursor Range", "Quão perto o cursor tem de estar do alvo antes de usar skills.")]
     public RangeNode<float> CursorRange { get; set; } = new(20f, 1f, 100f);

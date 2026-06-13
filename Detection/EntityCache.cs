@@ -25,6 +25,7 @@ public sealed class EntityCache
 {
     private readonly GameController _gc;
     private readonly List<TrackedEntity> _monsters = new(128);
+    private readonly List<ProximalMark> _proximal = new(16);
     private Vector2 _playerGridPos;
 
     // R1 (REBUILD_PERF_PLANO): cache do IMUTÁVEL (Rarity) por id. A Rarity de um mob não muda enquanto
@@ -50,6 +51,13 @@ public sealed class EntityCache
     /// <summary>Os monstros hostis válidos do tick atual (já filtrados). Não modificar de fora.</summary>
     public IReadOnlyList<TrackedEntity> Monsters => _monsters;
 
+    /// <summary>
+    /// Mobs com o buff Proximal Tangibility neste tick — INCLUSIVE os que o filtro de validade exclui
+    /// (imunes à distância). Serve só ao HUD para desenhar a marca. <see cref="ProximalMark.Immune"/>
+    /// diz se está imune AGORA (mais longe que <see cref="ProximalTangibilityRange"/>).
+    /// </summary>
+    public IReadOnlyList<ProximalMark> ProximalEntities => _proximal;
+
     /// <summary>Posição (grid) do jogador no momento do último <see cref="Rebuild"/>.</summary>
     public Vector2 PlayerGridPos => _playerGridPos;
 
@@ -60,6 +68,7 @@ public sealed class EntityCache
     public void Rebuild()
     {
         _monsters.Clear();
+        _proximal.Clear();
 
         var player = _gc?.Player;
         if (player == null) return;
@@ -80,6 +89,14 @@ public sealed class EntityCache
         foreach (var entity in source)
         {
             var dist = Vector2.Distance(_playerGridPos, entity.GridPos);
+
+            // HUD: marca mobs com Proximal Tangibility ANTES do filtro (o filtro exclui-os à distância,
+            // mas queremos a marca mesmo enquanto imunes). Só mobs vivos/visíveis, para não marcar lixo.
+            if (entity != null && entity.IsValid && entity.IsAlive && !entity.IsDead
+                && entity.IsTargetable && !entity.IsHidden && entity.IsHostile
+                && HasProximalBuff(entity))
+                _proximal.Add(new ProximalMark { Entity = entity, Immune = dist > ProximalTangibilityRange });
+
             if (!IsValidTarget(entity, dist)) continue;
 
             _seenThisTick.Add(entity.Id);
@@ -160,6 +177,7 @@ public sealed class EntityCache
     public void Clear()
     {
         _monsters.Clear();
+        _proximal.Clear();
     }
 
     // ── Filtros ──────────────────────────────────────────────────────────────────────────
@@ -185,6 +203,17 @@ public sealed class EntityCache
         "divine_shrine", // Divine Shrine: imunidade total temporária enquanto o buff está ativo.
     };
 
+    // EXCEÇÕES ao fragmento "immune": buffs que CONTÊM "immune" no nome mas NÃO são, por si só, prova de
+    // imunidade do PRÓPRIO mob — apanhados por engano pelo Contains("immune").
+    //   monster_mod_abyss_immune_aura: aura de Abyss presente DENTRO e FORA da névoa (confirmado por probes
+    //   do mesmo Lightless Moray) → não marca presença-na-névoa, logo não deve bloquear sozinho. A
+    //   imunidade REAL do raro dentro da névoa é a stat BaseCannotBeDamagedByEnemies (ver IsValidTarget),
+    //   que dentro=1 / fora=0. Por isso excecionamos o buff aqui E filtramos a stat lá em baixo.
+    private static readonly string[] InvulnBuffExceptions =
+    {
+        "abyss_immune_aura",
+    };
+
     /// <summary>
     /// Um alvo só conta se for um monstro hostil, vivo, visível e ALVEJÁVEL E DANIFICÁVEL.
     /// Filtra invulnerabilidade por três vias (cobre clones de boss): a stat CannotBeDamaged,
@@ -205,8 +234,25 @@ public sealed class EntityCache
 
         // Stat de invulnerabilidade (a via principal). Stats pode ser null → assume danificável.
         var stats = entity.Stats;
-        if (stats != null && stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1)
-            return false;
+        if (stats != null)
+        {
+            // CannotBeDamaged: invulnerabilidade resolvida (clones de boss, Divine Shrine, etc.).
+            if (stats.TryGetValue(GameStat.CannotBeDamaged, out var v) && v == 1)
+                return false;
+            // BaseCannotBeDamaged: monstros presos no Monolith / hidden (essências, Blackjaw) — imunes
+            // ATÉ o jogador interagir (clicar). Confirmado por probe: têm BaseCannotBeDamaged=1 +
+            // IsHiddenMonster=1 + MonsterInsideMonolith=1, mas IsTargetable=true e SEM CannotBeDamaged
+            // resolvido — por isso passavam o filtro e a routine disparava neles em vão. Ver essencias-fechadas.
+            if (stats.TryGetValue(GameStat.BaseCannotBeDamaged, out var bv) && bv == 1)
+                return false;
+            // BaseCannotBeDamagedByEnemies: raros (e fodder) Abyss DENTRO da névoa (Lightless Well) ficam
+            // imunes a inimigos até serem atraídos para fora. Confirmado por par de probes do MESMO Lightless
+            // Moray: DENTRO = stat 1 + buffs abyss_lightless_well(_immune), HP não baixava; FORA = stat 0,
+            // buffs sumiam, levava DoT. Sem este filtro o aim desperdiçava-se num alvo imune. Ver
+            // abyss-immune-aura-targeting-bug. (O buff _immune_aura é excecionado acima por aparecer dentro E fora.)
+            if (stats.TryGetValue(GameStat.BaseCannotBeDamagedByEnemies, out var bve) && bve == 1)
+                return false;
+        }
 
         // PERF: lê o componente Buffs UMA SÓ VEZ e percorre a BuffsList UMA vez, verificando as duas
         // coisas (imunidade total + proximal intangibility) no mesmo varrimento. Antes liam-se os buffs
@@ -260,9 +306,39 @@ public sealed class EntityCache
                 if (checkProximal && name.Contains("proximal_intangibility", StringComparison.OrdinalIgnoreCase))
                     return true;
 
+                // Exceções: buffs com "immune" no nome que não dão imunidade ao próprio mob (ex: aura de
+                // Abyss que protege os fodder, não o raro). Saltam o bloqueio por fragmento.
+                var isException = false;
+                foreach (var ex in InvulnBuffExceptions)
+                    if (name.Contains(ex, StringComparison.OrdinalIgnoreCase)) { isException = true; break; }
+                if (isException) continue;
+
                 foreach (var frag in InvulnBuffFragments)
                     if (name.Contains(frag, StringComparison.OrdinalIgnoreCase))
                         return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    /// <summary>
+    /// Lê os buffs do mob UMA vez e devolve true se tem o Proximal Tangibility. Independente da distância
+    /// (o "imune agora" calcula-se à parte). Só para o HUD. Tolerante a falhas (sem buffs → false).
+    /// </summary>
+    private static bool HasProximalBuff(Entity entity)
+    {
+        try
+        {
+            if (!entity.TryGetComponent<Buffs>(out var buffs) || buffs?.BuffsList == null)
+                return false;
+
+            foreach (var b in buffs.BuffsList)
+            {
+                var name = b?.Name;
+                if (!string.IsNullOrEmpty(name)
+                    && name.Contains("proximal_intangibility", StringComparison.OrdinalIgnoreCase))
+                    return true;
             }
         }
         catch { }
