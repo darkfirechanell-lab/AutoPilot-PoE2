@@ -61,6 +61,16 @@ outra entidade. Precisa:
 - O path/EntityType do Bell — desconhecido até ver no jogo. Pode não ser MiscellaneousObjects.
 - Crítico no Bell tem de REGISTAR antes do Thunder (dica do user: Thunder precisa do crit do Culling).
 
+## DETETAR O BELL (investigado 12 Jun — ReAgent dá a forma, não o Bell pronto)
+O ReAgent NÃO tem nada de Bell, MAS o `NearbyMonsterInfo` mostra a forma: lê `EntityType.Monster` e
+expõe `Entity.Path`/`Entity.Metadata`/`GridPosition` de cada um. O Bell é "primed for stun" (alvejável)
+→ provavelmente `EntityType.Monster` (NÃO MiscellaneousObjects como o tornado). Logo:
+- Detetar = filtrar os Monster pelo PATH do Bell (forma do ReAgent). PATH desconhecido até ver no Dev.
+- CONSEQUÊNCIA (vuln 3 da auditoria): se o Bell é Monster, ele entra no TARGETING NORMAL como um mob →
+  tem de ser EXCLUÍDO do targeting de raros (senão o aim mira o Bell em vez do raro) E tratado como
+  alvo-só-do-Culling. Isto é mais código no EntityCache (filtro) além do aim-secundário.
+- F0 TEM de confirmar no Dev: o Path EXATO do Bell + o EntityType (Monster vs outro).
+
 ## DEPENDÊNCIAS
 Reusa: GroundEntityTracker (deteção por path), o motor Geral (prioridades/charges/buffs), AimController
 (mirar). Ver [[staffroutine-build]] (a StaffRoutine dedicada tem KillingPalm/ChargedStaff/FallingThunder/
