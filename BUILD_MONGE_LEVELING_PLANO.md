@@ -61,6 +61,20 @@ outra entidade. Precisa:
 - O path/EntityType do Bell — desconhecido até ver no jogo. Pode não ser MiscellaneousObjects.
 - Crítico no Bell tem de REGISTAR antes do Thunder (dica do user: Thunder precisa do crit do Culling).
 
+## ⭐ DESCOBERTA (IceMonk, C:/Users/clona/Desktop/GamePoe/IceMonk) — Bell por BUFF, não por entidade!
+O plugin IceMonk (build Ice Strike de outro dev, ExilePrecision) deteta o estado do Bell por um BUFF
+no player: `tempest_bell_combo_tracker` com `BuffCharges == 4` → o combo do sino está pronto → usa o
+Bell. NÃO mira a entidade Bell. Isto pode ELIMINAR a parte crítica/arriscada (aim-ao-Bell):
+- **Forma 1 (plano original):** mirar a entidade Bell — código novo no AimController, timing apertado, risco alto.
+- **Forma 2 (IceMonk):** ler um buff-tracker no player — JÁ é o que o motor faz (gate de buff/charges). Simples.
+RECOMENDAÇÃO: quando o user tiver a build montada, CONFIRMAR no buffnames.txt/Dev se há um buff-tracker
+(holo_focus_*/`*bell*`/`*charge*`) no PLAYER durante o combate. SE houver → Forma 2 (config, sem aim-ao-Bell).
+SE não → Forma 1. NÃO construir o aim-ao-Bell antes de confirmar isto (evita refazer).
+Outras ideias-ouro do IceMonk (reaproveitar): priority queue por raridade (DetermineElite/Normal); GATE DE
+MANA por skill (`currentMana > skill.Cost` — o motor NÃO tem isto, vale adicionar); HasFreezingMark +
+HasNearbyFreezingMark (mark no alvo OU num mob perto, raio 30). NOTA: IceMonk é Ice Strike/Hand of Chayula,
+NÃO Falling Thunder — skills diferentes da build do user; só a ESTRUTURA/mecânica do Bell é reaproveitável.
+
 ## DETETAR O BELL (investigado 12 Jun — ReAgent dá a forma, não o Bell pronto)
 O ReAgent NÃO tem nada de Bell, MAS o `NearbyMonsterInfo` mostra a forma: lê `EntityType.Monster` e
 expõe `Entity.Path`/`Entity.Metadata`/`GridPosition` de cada um. O Bell é "primed for stun" (alvejável)
