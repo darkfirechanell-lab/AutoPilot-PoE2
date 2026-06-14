@@ -152,30 +152,8 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
 
         // Botão "Carregar preset Ice Shot": preenche os campos [Geral] de cada skill com a rotação de
         // gelo afinada — para o utilizador não configurar 23 campos por skill à mão.
-        Settings.LoadIceShotPreset.OnPressed += () =>
-        {
-            // 1º re-deteta as skills da barra: garante que slots novos (ex.: trocaste o Salvo pelo
-            // Tornado) JÁ existem na lista antes de aplicar o preset — senão o preset saltava-os e
-            // ficavam por configurar (Prioridade 0). Resolve o "o Tornado não tem prioridade".
-            TrySyncSkills(force: true);
-
-            var preset = Combat.General.IceShotPreset.Build();
-            var n = Combat.General.PresetApplier.Apply(preset, Settings.Skills.Content);
-            Settings.GeneralUseUiRules.Value = true; // ativa as regras da UI logo a seguir.
-
-            // Diagnóstico: lista as skills do preset que NÃO encontraram slot (não estão na barra).
-            var faltam = new System.Collections.Generic.List<string>();
-            foreach (var r in preset)
-            {
-                var existe = false;
-                foreach (var s in Settings.Skills.Content)
-                    if (s != null && s.Name == r.SkillName) { existe = true; break; }
-                if (!existe && !faltam.Contains(r.SkillName)) faltam.Add(r.SkillName);
-            }
-            var msg = $"[AutoPilot] Preset aplicado a {n} skills. Liga 'Geral' no dropdown para usar.";
-            if (faltam.Count > 0) msg += $" SEM slot na barra (ignoradas): {string.Join(", ", faltam)}.";
-            DebugWindow.LogMsg(msg);
-        };
+        Settings.LoadIceShotPreset.OnPressed += () => ApplyPreset(Combat.General.IceShotPreset.Build(), "Ice Shot");
+        Settings.LoadMonkPreset.OnPressed += () => ApplyPreset(Combat.General.MonkPreset.Build(), "Monge");
 
         // M0: dump dos mods dos monstros perto (descobrir nomes internos). Usa o snapshot atual; se
         // ainda não há snapshot (combate não correu), faz um rebuild rápido para o dump ter dados.
@@ -660,6 +638,32 @@ public class AutoPilotPlugin : BaseSettingsPlugin<AutoPilotSettings>
     /// seleção mudou desde o último tick, faz Reset à routine anterior (larga teclas/estado) antes de
     /// trocar — senão um hold a meio podia ficar preso ao mudar de build no menu.
     /// </summary>
+    /// <summary>Aplica um preset (lista de regras) aos slots da UI: re-deteta as skills, escreve as regras,
+    /// liga as regras-da-UI, e reporta as skills do preset que não estão na barra. Partilhado pelos botões
+    /// "Carregar preset X".</summary>
+    private void ApplyPreset(System.Collections.Generic.List<Combat.General.SkillRule> preset, string nome)
+    {
+        // 1º re-deteta as skills da barra: garante que os slots existem antes de aplicar (senão o preset
+        // saltava skills ainda não detetadas e ficavam por configurar).
+        TrySyncSkills(force: true);
+
+        var n = Combat.General.PresetApplier.Apply(preset, Settings.Skills.Content);
+        Settings.GeneralUseUiRules.Value = true; // ativa as regras da UI logo a seguir.
+
+        // Diagnóstico: lista as skills do preset que NÃO encontraram slot (não estão na barra).
+        var faltam = new System.Collections.Generic.List<string>();
+        foreach (var r in preset)
+        {
+            var existe = false;
+            foreach (var s in Settings.Skills.Content)
+                if (s != null && s.Name == r.SkillName) { existe = true; break; }
+            if (!existe && !faltam.Contains(r.SkillName)) faltam.Add(r.SkillName);
+        }
+        var msg = $"[AutoPilot] Preset {nome} aplicado a {n} skills. Liga 'Geral' no dropdown para usar.";
+        if (faltam.Count > 0) msg += $" SEM slot na barra (ignoradas): {string.Join(", ", faltam)}.";
+        DebugWindow.LogMsg(msg);
+    }
+
     private IRoutine SelectRoutine()
     {
         var name = Settings.Routine?.Value ?? "Ice Shot";

@@ -76,6 +76,10 @@ public class AutoPilotSettings : ISettings
     [Submenu(CollapsedByDefault = true)]
     public HardnessSettings Dureza { get; set; } = new();
 
+    // 8.6 ── PRESETS: carregar rotações pré-feitas (gelo, monge…) para os campos das skills.
+    [Submenu(CollapsedByDefault = true)]
+    public PresetsSettings Presets { get; set; } = new();
+
     // 9 ── SKILLS (com o botão Re-detetar Teclas lá dentro)
     [Menu("Skills")]
     [Submenu(CollapsedByDefault = true)]
@@ -95,7 +99,8 @@ public class AutoPilotSettings : ISettings
     [IgnoreMenu, JsonIgnore] public ToggleNode MarkProximal => Combat.MarkProximal;
     [IgnoreMenu, JsonIgnore] public ToggleNode PauseOnPanels => Combat.PauseOnPanels;
     [IgnoreMenu, JsonIgnore] public ToggleNode GeneralUseUiRules => Combat.GeneralUseUiRules;
-    [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Combat.LoadIceShotPreset;
+    [IgnoreMenu, JsonIgnore] public ButtonNode LoadIceShotPreset => Presets.LoadIceShotPreset;
+    [IgnoreMenu, JsonIgnore] public ButtonNode LoadMonkPreset => Presets.LoadMonkPreset;
 
     [IgnoreMenu, JsonIgnore] public ToggleNode ModTargeting => Mods.ModTargeting;
     [IgnoreMenu, JsonIgnore] public ButtonNode DumpMods => Mods.DumpMods;
@@ -174,9 +179,22 @@ public class CombatSettings
         "DESLIGADO: usa o preset de gelo embutido.")]
     public ToggleNode GeneralUseUiRules { get; set; } = new(false);
 
-    [Menu("[Geral] Carregar preset Ice Shot", "Preenche os campos '[Geral]' de cada skill com a rotação de " +
-        "gelo já afinada. Depois liga 'Usar regras da UI' e testa.")]
+}
+
+// ── SECÇÃO PRESETS ──────────────────────────────────────────────────────────────────────────
+// Botões que preenchem os campos [Geral] de cada skill com uma rotação pré-feita. Cada botão re-deteta
+// as skills, escreve as regras, e liga "Usar regras da UI". Cresce com mais builds.
+[Submenu(CollapsedByDefault = true)]
+public class PresetsSettings
+{
+    [Menu("Carregar preset Ice Shot", "Rotação de GELO (arco): Tornado, Barrage, Snipe, Mark, Ice-Tipped, " +
+        "Ice Shot — já afinada. Preenche os campos [Geral] das skills e liga 'Usar regras da UI'.")]
     public ButtonNode LoadIceShotPreset { get; set; } = new();
+
+    [Menu("Carregar preset Monge", "Rotação BASE do MONGE: Charged Staff > Rend > Killing Palm > Falling " +
+        "Thunder (c/ power charges) > Bell > Hollow Form. Versão inicial — a mecânica do Bell afina-se " +
+        "depois. Preenche os campos [Geral] e liga 'Usar regras da UI'.")]
+    public ButtonNode LoadMonkPreset { get; set; } = new();
 }
 
 // ── SECÇÃO KITING (dodge) ──────────────────────────────────────────────────────────────────
